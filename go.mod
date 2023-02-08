@@ -1,4 +1,4 @@
-module go-postgres-crud
+module AzureWS
 
 go 1.13
 

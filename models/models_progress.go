@@ -3,7 +3,7 @@ package models
 import (
 	"database/sql"
 	"fmt"
-	"go-postgres-crud/config"
+	"AzureWS/config"
 	"log"
 
 	_ "github.com/lib/pq" // postgres golang driver

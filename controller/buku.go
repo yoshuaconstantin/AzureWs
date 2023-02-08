@@ -4,11 +4,9 @@ import (
 	"encoding/json" // package untuk enkode dan mendekode json menjadi struct dan sebaliknya
 	"fmt"
 	"strconv" // package yang digunakan untuk mengubah string menjadi tipe int
-
 	"log"
 	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
-
-	"go-postgres-crud/models" //models package dimana Buku didefinisikan
+	"AzureWS/models" //models package dimana Buku didefinisikan
 
 	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
 	_ "github.com/lib/pq"    // postgres golang driver

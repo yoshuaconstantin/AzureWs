@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"go-postgres-crud/router"
+	"AzureWS/router"
 	"log"
 	"net/http"
 )

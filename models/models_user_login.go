@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"AzureWS/config"
 
 	_ "github.com/lib/pq" // postgres golang driver
-
-	"go-postgres-crud/config"
-
 )
 
 // Buku schema dari tabel Buku
@@ -24,6 +22,7 @@ type User struct {
 	Password string `json:"password"`
 	Token    string `json:"token"`
 }
+
 
 func AddUser(user User) int64 {
 

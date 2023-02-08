@@ -1,9 +1,9 @@
 package router
 
 import (
-	"github.com/gorilla/mux"
+	"AzureWS/controller"
 
-	"go-postgres-crud/controller"
+	"github.com/gorilla/mux"
 )
 
 func Router() *mux.Router {
@@ -22,6 +22,7 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/add_user", controller.InsrtNewUser).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/user/{id}", controller.UpdtUserPsswd).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/user/{id}", controller.DltUsr).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/api/login", controller.LoginUser).Methods("GET", "OPTIONS")
 
 	return router
-}
+}	
