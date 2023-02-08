@@ -1,12 +1,13 @@
 package models
 
 import (
-	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"log"
 	"time"
 	"AzureWS/config"
+	"crypto/md5"
+	"encoding/hex"
 
 	_ "github.com/lib/pq" // postgres golang driver
 )
@@ -17,10 +18,10 @@ import (
 // Var       config.NullString `json:"var"`
 
 type User struct {
-	ID       int64  `json:"id"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Token    string `json:"token"`
+	ID       *int64  `json:"id,omitempty"`
+	Username string  `json:"username"`
+	Password string  `json:"password"`
+	Token    *string `json:"token,omitempty"`
 }
 
 
@@ -40,7 +41,9 @@ func AddUser(user User) int64 {
 	now := time.Now()
 
 	//Generate Token menggunakan username, password, timestamp.now
-	tokenGenerated := sha256.Sum256([]byte(user.Password + user.Username + now.String()))
+	sum := md5.Sum([]byte(user.Password + user.Username + now.String()))
+	tokenGenerated := hex.EncodeToString(sum[:])
+
 
 	// Scan function akan menyimpan insert id didalam id id
 	err := db.QueryRow(sqlStatement, user.Username, user.Password, tokenGenerated).Scan(&id)

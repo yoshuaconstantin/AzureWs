@@ -21,7 +21,7 @@ func Validate(username, password string) (string, error) {
 	sqlStatement := `SELECT token FROM user_login WHERE username = $1 AND password = $2`
 
 	// Execute the SQL statement.
-	var token string
+	var token sql.NullString
 	err := db.QueryRow(sqlStatement, username, password).Scan(&token)
 
 	// If the user is not found, return an error.
@@ -35,6 +35,10 @@ func Validate(username, password string) (string, error) {
 		return "", err
 	}
 
-	// Return the token if the user is found.
-	return token, nil
+	if token.Valid {
+		return token.String, nil
+	} else {
+		return "", nil
+	}
+
 }

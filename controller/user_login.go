@@ -126,9 +126,6 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	password := loginData.Password
 	
 
-	fmt.Println(username)
-	fmt.Println(password)
-
 	token, err := validation.Validate(username, password)
 	
 	if err == nil {
