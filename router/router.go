@@ -24,5 +24,8 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/user/{id}", controller.DltUsr).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/login", controller.LoginUser).Methods("GET", "OPTIONS")
 
+	// Dashboards data using token
+	router.HandleFunc("/api/home/dashboards", controller.GetDshbrdDat).Methods("GET", "OPTIONS")
+
 	return router
 }	

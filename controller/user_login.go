@@ -1,22 +1,23 @@
 package controller
 
 import (
-	"encoding/json" // package untuk enkode dan mendekode json menjadi struct dan sebaliknya
-	"fmt"
-	"strconv" // package yang digunakan untuk mengubah string menjadi tipe int
-	"log"
-	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
 	"AzureWS/models" //models package dimana User didefinisikan
 	"AzureWS/validation"
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/json" // package untuk enkode dan mendekode json menjadi struct dan sebaliknya
+	"fmt"
+	"log"
+	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
+	"strconv"  // package yang digunakan untuk mengubah string menjadi tipe int
 
 	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
 	_ "github.com/lib/pq"    // postgres golang driver
 )
 
-
 /*
 
-*/
+ */
 
 type responseUserLogin struct {
 	ID      int64  `json:"id,omitempty"`
@@ -124,9 +125,11 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	
 	username := loginData.Username
 	password := loginData.Password
-	
 
-	token, err := validation.Validate(username, password)
+	sumPswd := md5.Sum([]byte(password))
+	PasswordEncrpyted := hex.EncodeToString(sumPswd[:])
+
+	token, err := validation.Validate(username, PasswordEncrpyted)
 	
 	if err == nil {
 		if token != "" {

@@ -44,9 +44,11 @@ func AddUser(user User) int64 {
 	sum := md5.Sum([]byte(user.Password + user.Username + now.String()))
 	tokenGenerated := hex.EncodeToString(sum[:])
 
+	sumPswd := md5.Sum([]byte(user.Password))
+	PasswordEncrpyted := hex.EncodeToString(sumPswd[:])
 
 	// Scan function akan menyimpan insert id didalam id id
-	err := db.QueryRow(sqlStatement, user.Username, user.Password, tokenGenerated).Scan(&id)
+	err := db.QueryRow(sqlStatement, user.Username, PasswordEncrpyted, tokenGenerated).Scan(&id)
 
 	if err != nil {
 		log.Fatalf("Tidak Bisa mengeksekusi query. %v", err)
