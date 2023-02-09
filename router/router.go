@@ -26,6 +26,7 @@ func Router() *mux.Router {
 
 	// Dashboards data using token
 	router.HandleFunc("/api/home/dashboards", controller.GetDshbrdDat).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/home/update/dashboard/data", controller.UpdtDshbrdDat).Methods("POST", "OPTIONS")
 
 	return router
 }	

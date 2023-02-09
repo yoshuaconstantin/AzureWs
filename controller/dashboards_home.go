@@ -5,7 +5,6 @@ import (
 	"encoding/json" // package untuk enkode dan mendekode json menjadi struct dan sebaliknya
 	"log"
 	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
-	
 
 	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
 	_ "github.com/lib/pq"    // postgres golang driver
@@ -68,3 +67,46 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	params := mux.Vars(r)
+
+	token := params["token"]
+	mode := params["mode"]
+
+	boolResult, err := models.UpdateDashboardsData(token, mode)
+
+	if err != nil {
+		log.Fatalf("Unable to retrieve data. %v", err)
+
+		var response responseDashboards
+		response.Status = http.StatusInternalServerError
+		response.Message = "Error retrieving data"
+		
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+
+		return
+	}
+
+	if boolResult {
+		var response responseDashboards
+		response.Status = http.StatusOK
+		response.Message = "Success"
+	
+		// Send the response
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	} else {
+		var response responseDashboards
+		response.Status = http.StatusNotAcceptable
+		response.Message = err
+	
+		// Send the response
+		w.WriteHeader(http.StatusNotAcceptable)
+		json.NewEncoder(w).Encode(response)
+	}
+}
