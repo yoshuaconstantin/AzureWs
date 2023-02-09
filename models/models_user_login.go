@@ -1,15 +1,18 @@
 package models
 
 import (
+	"crypto/md5"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"time"
-	"AzureWS/config"
-	"crypto/md5"
-	"encoding/hex"
 
+	"github.com/google/uuid"
 	_ "github.com/lib/pq" // postgres golang driver
+	"golang.org/x/crypto/bcrypt"
+
+	"AzureWS/config"
 )
 
 // Buku schema dari tabel Buku
@@ -24,7 +27,6 @@ type User struct {
 	Token    *string `json:"token,omitempty"`
 }
 
-
 func AddUser(user User) int64 {
 
 	db := config.CreateConnection()
@@ -32,7 +34,7 @@ func AddUser(user User) int64 {
 	defer db.Close()
 
 	// mengembalikan nilai id akan mengembalikan id dari user login yang dimasukkan ke db
-	sqlStatement := `INSERT INTO user_login (username, password, token) VALUES ($1, $2, $3) RETURNING id`
+	sqlStatement := `INSERT INTO user_login (userId, username, password, token) VALUES ($1, $2, $3, $4) RETURNING id`
 
 	// id yang dimasukkan akan disimpan di id ini
 	var id int64
@@ -40,15 +42,24 @@ func AddUser(user User) int64 {
 	//membuat timestamp waktu sekarang tanpa format
 	now := time.Now()
 
+	//Generate UUID untuk userID menggunakan UUID generator
+	userID, errUuid := uuid.NewRandom()
+	if errUuid != nil {
+		fmt.Printf("error generating UUID: %v", errUuid)
+	}
+
+	//Encrypt password using salt
+	salt, errSalt := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if errSalt != nil {
+		fmt.Printf("error generating salt: %v", errSalt)
+	}
+
 	//Generate Token menggunakan username, password, timestamp.now
 	sum := md5.Sum([]byte(user.Password + user.Username + now.String()))
 	tokenGenerated := hex.EncodeToString(sum[:])
 
-	sumPswd := md5.Sum([]byte(user.Password))
-	PasswordEncrpyted := hex.EncodeToString(sumPswd[:])
-
 	// Scan function akan menyimpan insert id didalam id id
-	err := db.QueryRow(sqlStatement, user.Username, PasswordEncrpyted, tokenGenerated).Scan(&id)
+	err := db.QueryRow(sqlStatement, userID, user.Username, salt, tokenGenerated).Scan(&id)
 
 	if err != nil {
 		log.Fatalf("Tidak Bisa mengeksekusi query. %v", err)
@@ -60,15 +71,13 @@ func AddUser(user User) int64 {
 	return id
 }
 
-
 func GetAllUser() ([]User, error) {
-	
+
 	db := config.CreateConnection()
 
 	defer db.Close()
 
 	var users []User
-
 
 	sqlStatement := `SELECT * FROM user_login`
 
@@ -101,7 +110,6 @@ func GetAllUser() ([]User, error) {
 	// return empty buku atau jika error
 	return users, err
 }
-
 
 func GetSingleUser(id int64) (User, error) {
 	// mengkoneksikan ke db postgres

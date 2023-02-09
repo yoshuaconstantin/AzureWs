@@ -1,40 +1,38 @@
 package models
 
 import (
-	"log"
-	"AzureWS/config"
 	"database/sql"
-	"strconv" 
 	"fmt"
+	"log"
+	"strconv"
 
 	_ "github.com/lib/pq" // postgres golang driver
+
+	"AzureWS/config"
 )
 
-
 type DashboardsData struct {
-	ID				*int64		`json:"id,omitempty"`
-	ProfileCount	*int		`json:"profileCount,omitempty"`
-	ProfileRank		*string		`json:"profileRank,omitempty"`
-	ThermalCount	*int		`json:"thermalCount,omitempty"`
-	ThermalRank		*string		`json:"thermalRank,omitempty"`
-	DozeCount		*int		`json:"dozeCount,omitempty"`
-	DozeRank		*string		`json:"dozeRank,omitempty"`
-	Token			*string		`json:"token,omitempty"`
+	ID           *int64  `json:"id,omitempty"`
+	ProfileCount *int    `json:"profileCount,omitempty"`
+	ProfileRank  *string `json:"profileRank,omitempty"`
+	ThermalCount *int    `json:"thermalCount,omitempty"`
+	ThermalRank  *string `json:"thermalRank,omitempty"`
+	DozeCount    *int    `json:"dozeCount,omitempty"`
+	DozeRank     *string `json:"dozeRank,omitempty"`
+	UserID       *string `json:"userId,omitempty"`
 }
 
+func GetDashboardsData(userId string) ([]DashboardsData, error) {
 
-func GetDashboardsData(token string) ([]DashboardsData, error) {
-	
 	db := config.CreateConnection()
 
 	defer db.Close()
 
 	var dashboardsData []DashboardsData
 
-	sqlStatement := `SELECT * FROM dashboards_data WHERE token = $1`
+	sqlStatement := `SELECT * FROM dashboards_data WHERE UserId = $1`
 
-	
-	rows, err := db.Query(sqlStatement, token)
+	rows, err := db.Query(sqlStatement, userId)
 
 	if err != nil {
 		log.Fatalf("tidak bisa mengeksekusi query. %v", err)
@@ -59,8 +57,8 @@ func GetDashboardsData(token string) ([]DashboardsData, error) {
 	return dashboardsData, err
 }
 
-func UpdateDashboardsData(token string, mode string) (bool, error) {
-	
+func UpdateDashboardsData(userId string, mode string) (bool, error) {
+
 	db := config.CreateConnection()
 
 	defer db.Close()
@@ -68,30 +66,30 @@ func UpdateDashboardsData(token string, mode string) (bool, error) {
 	// map mode to column name
 	modeMapCount := map[string]string{
 		"profiles": "ProfileCount",
-		"thermal": "ThermalCount",
-		"doze": "DozeCount",
+		"thermal":  "ThermalCount",
+		"doze":     "DozeCount",
 	}
 
 	modeMapRank := map[string]string{
 		"profiles": "ProfileRank",
-		"thermal": "ThermalRank",
-		"doze": "DozeRank",
+		"thermal":  "ThermalRank",
+		"doze":     "DozeRank",
 	}
 
 	column, ok := modeMapCount[mode]
 	if !ok {
-		return false, fmt.Errorf("%s %s","Invalid mode", mode)
+		return false, fmt.Errorf("%s %s", "Invalid mode", mode)
 	}
 
 	columnRank, ok := modeMapRank[mode]
 	if !ok {
-		return false, fmt.Errorf("%s %s","Invalid mode", mode)
+		return false, fmt.Errorf("%s %s", "Invalid mode", mode)
 	}
 
-	sqlStatement := `SELECT ` + column + ` FROM dashboards_data WHERE token = $1`
+	sqlStatement := `SELECT ` + column + ` FROM dashboards_data WHERE userId = $1`
 
 	var result sql.NullString
-	err := db.QueryRow(sqlStatement, token).Scan(&result)
+	err := db.QueryRow(sqlStatement, userId).Scan(&result)
 
 	if err == sql.ErrNoRows {
 		return false, err
@@ -103,7 +101,7 @@ func UpdateDashboardsData(token string, mode string) (bool, error) {
 	}
 
 	if result.Valid {
-		
+
 		resultInt, err := strconv.Atoi(result.String)
 
 		if err != nil {
@@ -111,39 +109,29 @@ func UpdateDashboardsData(token string, mode string) (bool, error) {
 		}
 
 		var updatedRank string
-		
+
 		resultInt = resultInt + 1
 
 		if resultInt > 20 {
-			updatedRank = `UPDATE dashboards_data SET ` + columnRank + ` = Enjoyer  WHERE token = $1`
+			updatedRank = "Enjoyer"
 		} else if resultInt > 60 {
-			updatedRank = `UPDATE dashboards_data SET ` + columnRank + ` = Madness  WHERE token = $1`
+			updatedRank = "Madness"
 		} else if resultInt > 200 {
-			updatedRank = `UPDATE dashboards_data SET ` + columnRank + ` = Crazy  WHERE token = $1`
+			updatedRank = "Crazy"
 		} else if resultInt > 500 {
-			updatedRank = `UPDATE dashboards_data SET ` + columnRank + ` = Legends  WHERE token = $1`
+			updatedRank = "Legends"
 		} else if resultInt > 2000 {
-			updatedRank = `UPDATE dashboards_data SET ` + columnRank + ` = PRO  WHERE token = $1`
+			updatedRank = "PRO"
 		} else {
-			updatedRank = `UPDATE dashboards_data SET ` + columnRank + ` = Nubie  WHERE token = $1`
+			updatedRank = "Nubie"
 		}
 
-		sqlStatement := `UPDATE dashboards_data SET ` + column + ` = $1 WHERE token = $2`
-		
+		sqlStatement := `UPDATE dashboards_data SET ` + column + ` = $1, ` + columnRank + ` = $2  WHERE userId = $3`
+
 		//exec result + 1 each mode tapped
-		res, errUpdate := db.Exec(sqlStatement, resultInt, token)
-
-		//exec Rank with each condition meet
-		resR, errUpdateRank := db.Exec(updatedRank, token)
-
-
+		res, errUpdate := db.Exec(sqlStatement, resultInt, updatedRank, userId)
 
 		if errUpdate != nil {
-			log.Fatalf("Error executing the SQL statement: %v", err)
-			return false, errUpdate
-		}
-
-		if errUpdateRank != nil {
 			log.Fatalf("Error executing the SQL statement: %v", err)
 			return false, errUpdate
 		}
@@ -153,25 +141,14 @@ func UpdateDashboardsData(token string, mode string) (bool, error) {
 			return false, err
 		}
 
-		rowsAffectedRank, errUpdateRank := resR.RowsAffected()
-		if errUpdateRank != nil {
-			return false, errUpdateRank
-		}
 		// if update count succes, then next
 		if rowsAffected == 1 {
-			
-			// if update rank succes then next
-			if rowsAffectedRank == 1{
-				return true, nil
-			} else {
-				return false, fmt.Errorf("%s", "Update Rank error, try again later")
-			}
+			return true, nil
 		} else {
-			return false, fmt.Errorf("%s %d","Expected to affect 1 row, but affected" ,rowsAffected)
+			return false, fmt.Errorf("%s %d", "Expected to affect 1 row, but affected", rowsAffected)
 		}
 
 	} else {
-
 		return false, err
 	}
 }

@@ -1,10 +1,6 @@
 package controller
 
 import (
-	"AzureWS/models" //models package dimana User didefinisikan
-	"AzureWS/validation"
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json" // package untuk enkode dan mendekode json menjadi struct dan sebaliknya
 	"fmt"
 	"log"
@@ -13,6 +9,9 @@ import (
 
 	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
 	_ "github.com/lib/pq"    // postgres golang driver
+
+	"AzureWS/models" //models package dimana User didefinisikan
+	"AzureWS/validation"
 )
 
 /*
@@ -22,8 +21,7 @@ import (
 type responseUserLogin struct {
 	ID      int64  `json:"id,omitempty"`
 	Message string `json:"message,omitempty"`
-	Status  int `json:"status,omitempty"`
-
+	Status  int    `json:"status,omitempty"`
 }
 
 type ResponseUserLogin struct {
@@ -33,15 +31,14 @@ type ResponseUserLogin struct {
 }
 
 type ResponseUserToken struct {
-	Status  int           `json:"status"`
-	Message string        `json:"message"`
-	Token   string		  `json:"token"`
+	Status  int    `json:"status"`
+	Message string `json:"message"`
+	Token   string `json:"token"`
 }
 
-
 type ResponseAllError struct {
-	Status  int           `json:"status"`
-	Message string        `json:"message"`
+	Status  int    `json:"status"`
+	Message string `json:"message"`
 }
 
 type LoginData struct {
@@ -67,11 +64,11 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 	insertID := models.AddUser(user)
 
 	// format response objectnya
-	
+
 	var response responseUserLogin
-			response.Status = http.StatusOK
-			response.Message = "Data user baru telah di tambahkan"
-			response.ID = insertID
+	response.Status = http.StatusOK
+	response.Message = "Data user baru telah di tambahkan"
+	response.ID = insertID
 
 	// kirim response
 	w.WriteHeader(http.StatusOK)
@@ -110,62 +107,80 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	
+
 	var loginData LoginData
 	err := json.NewDecoder(r.Body).Decode(&loginData)
 	if err != nil {
 		var response ResponseAllError
 		response.Status = http.StatusBadRequest
 		response.Message = "Invalid request body"
-		
+
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	username := loginData.Username
 	password := loginData.Password
 
-	sumPswd := md5.Sum([]byte(password))
-	PasswordEncrpyted := hex.EncodeToString(sumPswd[:])
+	//User should validate the password with stored password using salt and return boolean
+	//change the whole system to validate first then continue
+	storedPassword, err := validation.ValidateGetStoredPassword(username)
 
-	token, err := validation.Validate(username, PasswordEncrpyted)
-	
-	if err == nil {
-		if token != "" {
-			// Kirim respon token kalau tidak kosong
-			var response ResponseUserToken
-			response.Status = http.StatusOK
-			response.Message = "Success"
-			response.Token = token
-		
-			w.WriteHeader(http.StatusOK)
-	
-			json.NewEncoder(w).Encode(response)
-	
-		} else {
-			// kirim respon 500 kalau token kosong
-			
-			var response ResponseUserToken
-			response.Status = http.StatusInternalServerError
-			response.Message = "No token"
-			response.Token = token
-		
-			w.WriteHeader(http.StatusInternalServerError)
-	
-			json.NewEncoder(w).Encode(response)
-	
-		}
-	} else {
+	PasswordValidation, errPassvalidate := validation.ValidateUserPassword(password, storedPassword)
+
+	if errPassvalidate != nil {
 		// kirim respon 400 kalau ada error
-	
+
 		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = "Password not match"
+
+		w.WriteHeader(http.StatusBadRequest)
+
+		json.NewEncoder(w).Encode(response)
+	}
+
+	if PasswordValidation {
+
+		token, err := validation.Validate(username, storedPassword)
+
+		if err == nil {
+			if token != "" {
+				// Kirim respon token kalau tidak kosong
+				var response ResponseUserToken
+				response.Status = http.StatusOK
+				response.Message = "Success"
+				response.Token = token
+
+				w.WriteHeader(http.StatusOK)
+
+				json.NewEncoder(w).Encode(response)
+
+			} else {
+				// kirim respon 500 kalau token kosong
+
+				var response ResponseUserToken
+				response.Status = http.StatusInternalServerError
+				response.Message = "No token"
+				response.Token = token
+
+				w.WriteHeader(http.StatusInternalServerError)
+
+				json.NewEncoder(w).Encode(response)
+
+			}
+		} else {
+			// kirim respon 400 kalau ada error
+
+			var response ResponseAllError
 			response.Status = http.StatusBadRequest
 			response.Message = "User not found "
-		
+
 			w.WriteHeader(http.StatusBadRequest)
-	
+
 			json.NewEncoder(w).Encode(response)
+		}
 	}
 }
 
@@ -183,7 +198,7 @@ func GetAllUsr(w http.ResponseWriter, r *http.Request) {
 		var response ResponseAllError
 		response.Status = http.StatusInternalServerError
 		response.Message = "Error retrieving data"
-		
+
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(response)
 
@@ -232,7 +247,7 @@ func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
 	res := responseUserLogin{
 		ID:      int64(id),
 		Message: msg,
-		Status: http.StatusOK,
+		Status:  http.StatusOK,
 	}
 
 	// kirim berupa response
@@ -240,7 +255,7 @@ func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-//delete user 
+// delete user
 func DltUsr(w http.ResponseWriter, r *http.Request) {
 
 	// kita ambil request parameter idnya
@@ -263,7 +278,7 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 			Message: "Data token tidak ada, silahkan masukan token",
 			Status:  http.StatusBadRequest,
 		}
-		
+
 		json.NewEncoder(w).Encode(resFailed)
 
 	}
