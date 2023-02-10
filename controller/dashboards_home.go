@@ -4,12 +4,13 @@ import (
 	"encoding/json" // package untuk enkode dan mendekode json menjadi struct dan sebaliknya
 	"log"
 	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
+	// digunakan untuk mendapatkan parameter dari router
 
-	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
-	_ "github.com/lib/pq"    // postgres golang driver
+	_ "github.com/lib/pq" // postgres golang driver
 
 	"AzureWS/models" //models package dimana User didefinisikan
 	"AzureWS/validation"
+
 )
 
 /*
@@ -28,8 +29,13 @@ type ResponseDashboardsData struct {
 	Data    []models.DashboardsData `json:"data"`
 }
 
-type GetDashboards struct {
+type GetTokenUser struct {
 	Token string `json:"token"`
+}
+
+type UpdateDashboardsData struct {
+	Token string `json:"token"`
+	Mode   string `json:"mode"`
 }
 
 func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
@@ -37,11 +43,21 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	params := mux.Vars(r)
+	var token GetTokenUser
+	err := json.NewDecoder(r.Body).Decode(&token)
+	if err != nil {
+		var response responseDashboards
+		response.Status = http.StatusBadRequest
+		response.Message = "Invalid request body"
 
-	token := params["token"]
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
 
-	userId, errGetUuid := validation.ValidateTokenGetUuid(token)
+	tokenEntered := token.Token
+
+	userId, errGetUuid := validation.ValidateTokenGetUuid(tokenEntered)
 
 	if errGetUuid != nil {
 		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
@@ -86,12 +102,34 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	params := mux.Vars(r)
+	var modelUpdate UpdateDashboardsData
+	err := json.NewDecoder(r.Body).Decode(&modelUpdate)
+	if err != nil {
+		var response responseDashboards
+		response.Status = http.StatusBadRequest
+		response.Message = "Invalid request body"
 
-	token := params["token"]
-	mode := params["mode"]
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
 
-	boolResult, err := models.UpdateDashboardsData(token, mode)
+	userId, errGetUuid := validation.ValidateTokenGetUuid(modelUpdate.Token)
+
+	if errGetUuid != nil {
+		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
+
+		var response responseDashboards
+		response.Status = http.StatusInternalServerError
+		response.Message = "Error retrieving UserId"
+
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+
+		return
+	}
+
+	boolResult, err := models.UpdateDashboardsData(userId, modelUpdate.Mode)
 
 	if err != nil {
 		log.Fatalf("Unable to retrieve data. %v", err)

@@ -5,20 +5,41 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"AzureWS/config"
 
 	_ "github.com/lib/pq" // postgres golang driver
+
+	"AzureWS/config"
+
 )
 
 type DashboardsData struct {
-	ID           *int64  `json:"id,omitempty"`
 	ProfileCount *int    `json:"profileCount,omitempty"`
 	ProfileRank  *string `json:"profileRank,omitempty"`
 	ThermalCount *int    `json:"thermalCount,omitempty"`
 	ThermalRank  *string `json:"thermalRank,omitempty"`
 	DozeCount    *int    `json:"dozeCount,omitempty"`
 	DozeRank     *string `json:"dozeRank,omitempty"`
-	UserID       *string `json:"user_id,omitempty"`
+}
+
+func InitDashboardsDataSet(userId string) (bool, error) {
+	db := config.CreateConnection()
+
+	defer db.Close()
+
+	sqlStatement := `INSERT INTO dashboards_data (user_id, profilecount, profilerank, thermalcount, thermalrank, dozecount, dozerank ) VALUES ($1, 0,'Nubie',0,'Nubie',0,'Nubie')`
+
+	_, err := db.Exec(sqlStatement, userId)
+
+	fmt.Printf("\nUser id %v\n", userId)
+
+	if err != nil {
+		log.Fatalf("tidak bisa mengeksekusi query init dashboards. %v\n", err)
+		return false, fmt.Errorf("%s", "Failed, try again later")
+	}
+
+	fmt.Printf("Insert data single record into Dashboards data\n")
+
+	return true, nil
 }
 
 func GetDashboardsData(userId string) ([]DashboardsData, error) {
@@ -29,12 +50,12 @@ func GetDashboardsData(userId string) ([]DashboardsData, error) {
 
 	var dashboardsData []DashboardsData
 
-	sqlStatement := `SELECT * FROM dashboards_data WHERE user_id = $1`
+	sqlStatement := `SELECT profilecount, profilerank, thermalcount, thermalrank, dozecount, dozerank FROM dashboards_data WHERE user_id = $1`
 
 	rows, err := db.Query(sqlStatement, userId)
 
 	if err != nil {
-		log.Fatalf("tidak bisa mengeksekusi query. %v", err)
+		log.Fatalf("GET DASHBOARDS DATA ERROR - tidak bisa mengeksekusi query. %v", err)
 	}
 
 	defer rows.Close()
@@ -42,10 +63,10 @@ func GetDashboardsData(userId string) ([]DashboardsData, error) {
 	for rows.Next() {
 		var dashboardData DashboardsData
 
-		err = rows.Scan(&dashboardData.ID, &dashboardData.ProfileCount, &dashboardData.ThermalCount, &dashboardData.ThermalRank, &dashboardData.DozeCount, &dashboardData.DozeRank)
+		err = rows.Scan( &dashboardData.ProfileCount, &dashboardData.ProfileRank,  &dashboardData.ThermalCount, &dashboardData.ThermalRank, &dashboardData.DozeCount, &dashboardData.DozeRank)
 
 		if err != nil {
-			log.Fatalf("tidak bisa mengambil data semua dashboards. %v", err)
+			log.Fatalf("GET DASHBOARDS DATA ERROR - tidak bisa mengambil data semua dashboards. %v", err)
 		}
 
 		dashboardsData = append(dashboardsData, dashboardData)
@@ -77,12 +98,12 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 
 	column, ok := modeMapCount[mode]
 	if !ok {
-		return false, fmt.Errorf("%s %s", "Invalid mode", mode)
+		return false, fmt.Errorf("%s %s", "UPDATE DASHBOARDS DATA ERROR - Invalid userID", userId)
 	}
 
 	columnRank, ok := modeMapRank[mode]
 	if !ok {
-		return false, fmt.Errorf("%s %s", "Invalid mode", mode)
+		return false, fmt.Errorf("%s %s", "UPDATE DASHBOARDS DATA ERROR - Invalid mode", mode)
 	}
 
 	sqlStatement := `SELECT ` + column + ` FROM dashboards_data WHERE user_id = $1`
@@ -95,7 +116,7 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 	}
 
 	if err != nil {
-		log.Fatalf("Error executing the SQL statement: %v", err)
+		log.Fatalf("UPDATE DASHBOARDS DATA ERROR - Error executing the SQL statement: %v", err)
 		return false, err
 	}
 
@@ -131,7 +152,7 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 		res, errUpdate := db.Exec(sqlStatement, resultInt, updatedRank, userId)
 
 		if errUpdate != nil {
-			log.Fatalf("Error executing the SQL statement: %v", err)
+			log.Fatalf("UPDATE DASHBOARDS DATA ERROR - Error executing the SQL statement: %v", err)
 			return false, errUpdate
 		}
 
@@ -144,7 +165,7 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 		if rowsAffected == 1 {
 			return true, nil
 		} else {
-			return false, fmt.Errorf("%s %d", "Expected to affect 1 row, but affected", rowsAffected)
+			return false, fmt.Errorf("%s %d", "UPDATE DASHBOARDS DATA ERROR - Expected to affect 1 row, but affected", rowsAffected)
 		}
 
 	} else {

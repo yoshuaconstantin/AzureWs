@@ -1,12 +1,17 @@
 package validation
 
 import (
+	"crypto/md5"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"log"
-	"AzureWS/config"
 
 	_ "github.com/lib/pq"
+	//"golang.org/x/crypto/bcrypt"
+
+	"AzureWS/config"
+
 )
 
 func Validate(username, password string) (string, error) {
@@ -51,6 +56,10 @@ func ValidateTokenGetUuid(token string) (string, error) {
 	// Create a SQL query to retrieve the token based on the username and password.
 	sqlStatement := `SELECT user_id FROM user_login WHERE token = $1`
 
+
+	//token print 
+	fmt.Printf("Validation - Token Entered %v\n", token)
+
 	// Execute the SQL statement.
 	var uuid sql.NullString
 	err := db.QueryRow(sqlStatement, token).Scan(&uuid)
@@ -73,8 +82,7 @@ func ValidateTokenGetUuid(token string) (string, error) {
 	}
 }
 
-
-func ValidateGetStoredPassword (username string) (string, error){
+func ValidateGetStoredPassword(username string) (string, error) {
 
 	db := config.CreateConnection()
 
@@ -88,11 +96,11 @@ func ValidateGetStoredPassword (username string) (string, error){
 	var password sql.NullString
 
 	err := db.QueryRow(sqlStatement, username).Scan(&password)
-	
+
 	if err == sql.ErrNoRows {
-		return "", fmt.Errorf("%s","Password not found")
+		return "", fmt.Errorf("%s", "Password not found")
 	}
-	
+
 	if err != nil {
 		log.Fatalf("Error executing the SQL statement: %v", err)
 		return "", err
@@ -102,7 +110,7 @@ func ValidateGetStoredPassword (username string) (string, error){
 
 }
 
-func ValidateCreateNewUsername (username string) (bool, error){
+func ValidateCreateNewUsername(username string) (bool, error) {
 	db := config.CreateConnection()
 
 	// Close the connection at the end of the process.
@@ -112,20 +120,65 @@ func ValidateCreateNewUsername (username string) (bool, error){
 	sqlStatement := `SELECT username FROM user_login WHERE username = $1`
 
 	// Execute the SQL statement.
-	
+
 	var result string
 	err := db.QueryRow(sqlStatement, username).Scan(&result)
-	
+
 	if err == sql.ErrNoRows {
-		fmt.Printf("Masuk kedalam tidak ada row = sukses\n")	
+		fmt.Printf("Masuk kedalam tidak ada row = sukses\n")
 		return true, nil
 	}
-	
+
 	if err != nil {
-		fmt.Printf("Masuk kedalam error false")	
+		fmt.Printf("Masuk kedalam error false")
 		log.Fatalf("Error executing the SQL statement: %v", err)
 		return false, err
 	}
 
-	return true, nil
+	if result == username {
+		return false, nil
+	} else {
+		return true, nil
+	}
+}
+
+func ValidateUserPassword(enteredPassword string, storedPassword string) (bool, error) {
+	// Hash the entered password using the same salt as used during registration
+	// Salt location will be secured and salt are diff on each user.
+	//salt := []byte("AzureKey")
+
+	// hashedPassword, err := bcrypt.GenerateFromPassword([]byte(enteredPassword), 14)
+
+	// if err != nil {
+	// 	return false, err
+	// }
+
+	// Compare the hashed password from the validation with the stored hashed password
+	//return bcrypt.CompareHashAndPassword(hashedPassword, []byte(storedPassword)) == nil, nil
+
+	//as for now use MD5, later will use bcrypt
+	passwordMd5 := md5.Sum([]byte(enteredPassword))
+	passwordMd5String := hex.EncodeToString(passwordMd5[:])
+
+	if passwordMd5String == storedPassword {
+		return true, nil
+	} else {
+		return false, fmt.Errorf("%s", "Password didnt match")
+	}
+
+}
+
+func ValidatePasswordToEncrypt(password string) (string, error) {
+	// hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+
+	// if err != nil {
+	// 	return "", err
+	// }
+
+	//as for now use MD5, later will use bcrypt
+
+	passwordMd5 := md5.Sum([]byte(password))
+	passwordMd5String := hex.EncodeToString(passwordMd5[:])
+
+	return passwordMd5String, nil
 }

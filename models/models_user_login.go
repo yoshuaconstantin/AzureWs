@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"AzureWS/config"
-"AzureWS/validation"
 
-"golang.org/x/crypto/bcrypt"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq" // postgres golang driver
+
+	"AzureWS/config"
+	"AzureWS/validation"
+
 )
 
 // Buku schema dari tabel Buku
@@ -24,7 +25,7 @@ type User struct {
 	ID       *int64  `json:"id,omitempty"`
 	Username string  `json:"username"`
 	Password string  `json:"password"`
-	UserId    *string `json:"user_id,omitempty"`
+	UserId   *string `json:"user_id,omitempty"`
 }
 
 func AddUser(user User) (int64, error) {
@@ -38,54 +39,65 @@ func AddUser(user User) (int64, error) {
 	fmt.Printf("Username Validation Status: %v\n", usernameValidation)
 
 	if errUsername != nil {
-		fmt.Printf("Masuk kedalam error")	
+		fmt.Printf("\nCREATE USER - Masuk kedalam error\n")
 		return 0, errUsername
 	}
 
 	//if Validation Username return true (means not having same username)
 	if usernameValidation {
-		fmt.Printf("Masuk kedalam if\n\n")	
 
-			// mengembalikan nilai id akan mengembalikan id dari user login yang dimasukkan ke db
-	sqlStatement := `INSERT INTO user_login (user_id, username, password, token) VALUES ($1, $2, $3, $4) RETURNING id`
+		// mengembalikan nilai id akan mengembalikan id dari user login yang dimasukkan ke db
+		sqlStatement := `INSERT INTO user_login (user_id, username, password, token) VALUES ($1, $2, $3, $4) RETURNING id`
 
-	// id yang dimasukkan akan disimpan di id ini
-	var id int64
+		// id yang dimasukkan akan disimpan di id ini
+		var id int64
 
-	//membuat timestamp waktu sekarang tanpa format
-	now := time.Now()
+		//membuat timestamp waktu sekarang tanpa format
+		now := time.Now()
 
-	//Generate UUID untuk userID menggunakan UUID generator
-	userID, errUuid := uuid.NewRandom()
-	if errUuid != nil {
-		fmt.Printf("error generating UUID: %v", errUuid)
-	}
+		//Generate UUID untuk userID menggunakan UUID generator
+		userID, errUuid := uuid.NewRandom()
+		if errUuid != nil {
+			fmt.Printf("\nCREATE USER - error generating UUID: %v\n", errUuid)
+		}
+		
+		var fixedUserId string = userID.String()
+		//Encrypt password using salt
+		//salt := []byte("AzureKey")
+		hashedPassword, errhashed := validation.ValidatePasswordToEncrypt(user.Password)
 
-	//Encrypt password using salt
-	//salt := []byte("AzureKey")
-	hashedPassword, errhashed := ValidatePasswordToEncrypt(user.Password)
+		fmt.Printf("\nCREATE USER - Generated Password Salt %v\n", hashedPassword)
 
-	fmt.Printf("Validation - Generated Password Salt %v\n", hashedPassword)
+		if errhashed != nil {
+			fmt.Printf("\nCREATE USER - error generating password hash: %v\n", errhashed)
+		}
 
-	if errhashed != nil {
-	fmt.Printf("error generating password hash: %v", errhashed)
-	}
+		//Generate Token menggunakan username, password, timestamp.now
+		sum := md5.Sum([]byte(user.Password + user.Username + now.String()))
+		tokenGenerated := hex.EncodeToString(sum[:])
 
-	//Generate Token menggunakan username, password, timestamp.now
-	sum := md5.Sum([]byte(user.Password + user.Username + now.String()))
-	tokenGenerated := hex.EncodeToString(sum[:])
+		// Scan function akan menyimpan insert id didalam id id
+		err := db.QueryRow(sqlStatement, fixedUserId, user.Username, hashedPassword, tokenGenerated).Scan(&id)
 
-	// Scan function akan menyimpan insert id didalam id id
-	err := db.QueryRow(sqlStatement, userID, user.Username, hashedPassword, tokenGenerated).Scan(&id)
+		if err != nil {
+			log.Fatalf("\nCREATE USER - Tidak Bisa mengeksekusi query. %v\n", err)
+		}
 
-	if err != nil {
-		log.Fatalf("Tidak Bisa mengeksekusi query. %v", err)
-	}
+		fmt.Printf("\nCREATE USER - Insert data single record into user login %v\n", id)
 
-	fmt.Printf("Insert data single record into user login %v", id)
+		//Insert InitDashboards
+		initDashboards, error := InitDashboardsDataSet(fixedUserId)
 
-	// return insert id
-	return id, nil
+		if error != nil {
+			return 0, error
+		}
+
+		// return insert id
+		if initDashboards {
+			return id, nil
+		} else {
+			return 0, fmt.Errorf("%s", "\nCREATE USER - Failed to insert Init Dashboards Data\n")
+		}
 	} else {
 		return 0, errUsername
 	}
@@ -221,32 +233,4 @@ func RemoveUser(id int64, token string) int64 {
 	fmt.Printf("Total data yang terhapus %v", rowsAffected)
 
 	return rowsAffected
-}
-
-func ValidateUserPassword(enteredPassword string, storedPassword string) (bool, error) {
-	// Hash the entered password using the same salt as used during registration
-	// Salt location will be secured and salt are diff on each user.
-	//salt := []byte("AzureKey")
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(enteredPassword), 14)
-
-	if err != nil {
-		return false, err
-	}
-	
-	fmt.Printf("Validation - Generated Entered Password Salt %v\n\n", hashedPassword)
-	fmt.Printf("Validation - StoredPassword Salt %v\n", []byte(storedPassword))
-
-	// Compare the hashed password from the validation with the stored hashed password
-return bcrypt.CompareHashAndPassword(hashedPassword,[]byte(storedPassword)) == nil, nil
-}
-
-func ValidatePasswordToEncrypt (password string) (string, error){
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-
-	if err != nil {
-		return "", err
-	}
-
-	return string(hashedPassword), nil
 }
