@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"AzureWS/config"
 
 	_ "github.com/lib/pq" // postgres golang driver
-
-	"AzureWS/config"
 )
 
 type DashboardsData struct {
@@ -19,7 +18,7 @@ type DashboardsData struct {
 	ThermalRank  *string `json:"thermalRank,omitempty"`
 	DozeCount    *int    `json:"dozeCount,omitempty"`
 	DozeRank     *string `json:"dozeRank,omitempty"`
-	UserID       *string `json:"userId,omitempty"`
+	UserID       *string `json:"user_id,omitempty"`
 }
 
 func GetDashboardsData(userId string) ([]DashboardsData, error) {
@@ -30,7 +29,7 @@ func GetDashboardsData(userId string) ([]DashboardsData, error) {
 
 	var dashboardsData []DashboardsData
 
-	sqlStatement := `SELECT * FROM dashboards_data WHERE UserId = $1`
+	sqlStatement := `SELECT * FROM dashboards_data WHERE user_id = $1`
 
 	rows, err := db.Query(sqlStatement, userId)
 
@@ -86,7 +85,7 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 		return false, fmt.Errorf("%s %s", "Invalid mode", mode)
 	}
 
-	sqlStatement := `SELECT ` + column + ` FROM dashboards_data WHERE userId = $1`
+	sqlStatement := `SELECT ` + column + ` FROM dashboards_data WHERE user_id = $1`
 
 	var result sql.NullString
 	err := db.QueryRow(sqlStatement, userId).Scan(&result)
@@ -126,7 +125,7 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 			updatedRank = "Nubie"
 		}
 
-		sqlStatement := `UPDATE dashboards_data SET ` + column + ` = $1, ` + columnRank + ` = $2  WHERE userId = $3`
+		sqlStatement := `UPDATE dashboards_data SET ` + column + ` = $1, ` + columnRank + ` = $2  WHERE user_id = $3`
 
 		//exec result + 1 each mode tapped
 		res, errUpdate := db.Exec(sqlStatement, resultInt, updatedRank, userId)

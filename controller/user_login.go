@@ -6,12 +6,11 @@ import (
 	"log"
 	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
 	"strconv"  // package yang digunakan untuk mengubah string menjadi tipe int
+	"AzureWS/models" //models package dimana User didefinisikan
+	"AzureWS/validation"
 
 	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
 	_ "github.com/lib/pq"    // postgres golang driver
-
-	"AzureWS/models" //models package dimana User didefinisikan
-	"AzureWS/validation"
 )
 
 /*
@@ -48,6 +47,8 @@ type LoginData struct {
 
 // TambahUser
 func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Context-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	// create an empty user of type models.User
 	// kita buat empty User dengan tipe models.User
@@ -61,9 +62,18 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// panggil modelsnya lalu insert User
-	insertID := models.AddUser(user)
+	insertID, errInsert := models.AddUser(user)
 
-	// format response objectnya
+	if errInsert != nil {
+		var response ResponseAllError
+	response.Status = http.StatusConflict
+	response.Message = "Username already registered"
+
+	// kirim response
+	w.WriteHeader(http.StatusConflict)
+	json.NewEncoder(w).Encode(response)
+	} else {
+			// format response objectnya
 
 	var response responseUserLogin
 	response.Status = http.StatusOK
@@ -73,6 +83,7 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 	// kirim response
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+	}
 }
 
 // AmbilUser mengambil single data dengan parameter id
@@ -125,10 +136,22 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	//User should validate the password with stored password using salt and return boolean
 	//change the whole system to validate first then continue
-	storedPassword, err := validation.ValidateGetStoredPassword(username)
+	storedPassword, errStrdPswd := validation.ValidateGetStoredPassword(username)
 
-	PasswordValidation, errPassvalidate := validation.ValidateUserPassword(password, storedPassword)
+	
+	if errStrdPswd != nil {
+		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = fmt.Sprintf("Error: %s", errStrdPswd.Error())
+	
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
 
+	PasswordValidation, errPassvalidate := models.ValidateUserPassword(password, storedPassword)
+
+	fmt.Printf("Password Validation = %v\n", PasswordValidation)	
 	if errPassvalidate != nil {
 		// kirim respon 400 kalau ada error
 
@@ -147,6 +170,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 		if err == nil {
 			if token != "" {
+				fmt.Printf("Token = %v", token)	
 				// Kirim respon token kalau tidak kosong
 				var response ResponseUserToken
 				response.Status = http.StatusOK
@@ -171,7 +195,6 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 			}
 		} else {
-			// kirim respon 400 kalau ada error
 
 			var response ResponseAllError
 			response.Status = http.StatusBadRequest
@@ -181,6 +204,15 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 			json.NewEncoder(w).Encode(response)
 		}
+	}else {
+
+		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = "Password validating failed\n"
+
+		w.WriteHeader(http.StatusBadRequest)
+
+		json.NewEncoder(w).Encode(response)
 	}
 }
 

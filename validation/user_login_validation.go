@@ -1,16 +1,12 @@
 package validation
 
 import (
-	"crypto/hmac"
-	"crypto/sha512"
 	"database/sql"
 	"fmt"
 	"log"
-
-	_ "github.com/lib/pq"
-
 	"AzureWS/config"
 
+	_ "github.com/lib/pq"
 )
 
 func Validate(username, password string) (string, error) {
@@ -53,7 +49,7 @@ func ValidateTokenGetUuid(token string) (string, error) {
 	defer db.Close()
 
 	// Create a SQL query to retrieve the token based on the username and password.
-	sqlStatement := `SELECT userId FROM user_login WHERE token = $1`
+	sqlStatement := `SELECT user_id FROM user_login WHERE token = $1`
 
 	// Execute the SQL statement.
 	var uuid sql.NullString
@@ -77,17 +73,6 @@ func ValidateTokenGetUuid(token string) (string, error) {
 	}
 }
 
-const salt = "AzureWsKey"
-
-func ValidateUserPassword(enteredPassword string, storedPassword string) (bool, error) {
-	// Hash the entered password using the same salt and function as used during registration
-	h := sha512.New()
-	h.Write([]byte(salt + enteredPassword))
-	saltedPassword := h.Sum(nil)
-
-	// Compare the salted password from the client with the stored salted password
-	return hmac.Equal(saltedPassword, []byte(storedPassword)), nil
-}
 
 func ValidateGetStoredPassword (username string) (string, error){
 
@@ -102,7 +87,7 @@ func ValidateGetStoredPassword (username string) (string, error){
 	// Execute the SQL statement.
 	var password sql.NullString
 
-	err := db.QueryRow(sqlStatement, password).Scan(&password)
+	err := db.QueryRow(sqlStatement, username).Scan(&password)
 	
 	if err == sql.ErrNoRows {
 		return "", fmt.Errorf("%s","Password not found")
@@ -115,4 +100,32 @@ func ValidateGetStoredPassword (username string) (string, error){
 
 	return password.String, nil
 
+}
+
+func ValidateCreateNewUsername (username string) (bool, error){
+	db := config.CreateConnection()
+
+	// Close the connection at the end of the process.
+	defer db.Close()
+
+	// Create a SQL query to retrieve the token based on the username and password.
+	sqlStatement := `SELECT username FROM user_login WHERE username = $1`
+
+	// Execute the SQL statement.
+	
+	var result string
+	err := db.QueryRow(sqlStatement, username).Scan(&result)
+	
+	if err == sql.ErrNoRows {
+		fmt.Printf("Masuk kedalam tidak ada row = sukses\n")	
+		return true, nil
+	}
+	
+	if err != nil {
+		fmt.Printf("Masuk kedalam error false")	
+		log.Fatalf("Error executing the SQL statement: %v", err)
+		return false, err
+	}
+
+	return true, nil
 }

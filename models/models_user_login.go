@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"AzureWS/config"
+"AzureWS/validation"
 
+"golang.org/x/crypto/bcrypt"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq" // postgres golang driver
-	"golang.org/x/crypto/bcrypt"
-
-	"AzureWS/config"
 )
 
 // Buku schema dari tabel Buku
@@ -24,17 +24,30 @@ type User struct {
 	ID       *int64  `json:"id,omitempty"`
 	Username string  `json:"username"`
 	Password string  `json:"password"`
-	Token    *string `json:"token,omitempty"`
+	UserId    *string `json:"user_id,omitempty"`
 }
 
-func AddUser(user User) int64 {
+func AddUser(user User) (int64, error) {
 
 	db := config.CreateConnection()
 
 	defer db.Close()
 
-	// mengembalikan nilai id akan mengembalikan id dari user login yang dimasukkan ke db
-	sqlStatement := `INSERT INTO user_login (userId, username, password, token) VALUES ($1, $2, $3, $4) RETURNING id`
+	//Validate if username is same
+	usernameValidation, errUsername := validation.ValidateCreateNewUsername(user.Username)
+	fmt.Printf("Username Validation Status: %v\n", usernameValidation)
+
+	if errUsername != nil {
+		fmt.Printf("Masuk kedalam error")	
+		return 0, errUsername
+	}
+
+	//if Validation Username return true (means not having same username)
+	if usernameValidation {
+		fmt.Printf("Masuk kedalam if\n\n")	
+
+			// mengembalikan nilai id akan mengembalikan id dari user login yang dimasukkan ke db
+	sqlStatement := `INSERT INTO user_login (user_id, username, password, token) VALUES ($1, $2, $3, $4) RETURNING id`
 
 	// id yang dimasukkan akan disimpan di id ini
 	var id int64
@@ -49,9 +62,13 @@ func AddUser(user User) int64 {
 	}
 
 	//Encrypt password using salt
-	salt, errSalt := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if errSalt != nil {
-		fmt.Printf("error generating salt: %v", errSalt)
+	//salt := []byte("AzureKey")
+	hashedPassword, errhashed := ValidatePasswordToEncrypt(user.Password)
+
+	fmt.Printf("Validation - Generated Password Salt %v\n", hashedPassword)
+
+	if errhashed != nil {
+	fmt.Printf("error generating password hash: %v", errhashed)
 	}
 
 	//Generate Token menggunakan username, password, timestamp.now
@@ -59,7 +76,7 @@ func AddUser(user User) int64 {
 	tokenGenerated := hex.EncodeToString(sum[:])
 
 	// Scan function akan menyimpan insert id didalam id id
-	err := db.QueryRow(sqlStatement, userID, user.Username, salt, tokenGenerated).Scan(&id)
+	err := db.QueryRow(sqlStatement, userID, user.Username, hashedPassword, tokenGenerated).Scan(&id)
 
 	if err != nil {
 		log.Fatalf("Tidak Bisa mengeksekusi query. %v", err)
@@ -68,7 +85,10 @@ func AddUser(user User) int64 {
 	fmt.Printf("Insert data single record into user login %v", id)
 
 	// return insert id
-	return id
+	return id, nil
+	} else {
+		return 0, errUsername
+	}
 }
 
 func GetAllUser() ([]User, error) {
@@ -96,7 +116,7 @@ func GetAllUser() ([]User, error) {
 		var user User
 
 		// kita ambil datanya dan unmarshal ke structnya
-		err = rows.Scan(&user.ID, &user.Username, &user.Password, &user.Token)
+		err = rows.Scan(&user.ID, &user.Username, &user.Password, &user.UserId)
 
 		if err != nil {
 			log.Fatalf("tidak bisa mengambil data semua user. %v", err)
@@ -126,7 +146,7 @@ func GetSingleUser(id int64) (User, error) {
 	// eksekusi sql statement
 	row := db.QueryRow(sqlStatement, id)
 
-	err := row.Scan(&user.ID, &user.Username, &user.Password, &user.Token)
+	err := row.Scan(&user.ID, &user.Username, &user.Password, &user.UserId)
 
 	switch err {
 	case sql.ErrNoRows:
@@ -150,11 +170,11 @@ func UpdatePasswordUser(id int64, user User) int64 {
 	// kita tutup koneksinya di akhir proses
 	defer db.Close()
 
-	// kita buat sql query create
-	sqlStatement := `UPDATE user_login SET password=$2, WHERE id=$1 AND WHERE token=$3`
+	//As for now just use username, later should be validate and based on userId
+	sqlStatement := `UPDATE user_login SET password=$2, WHERE username`
 
 	// eksekusi sql statement
-	res, err := db.Exec(sqlStatement, id, user.Password, user.Token)
+	res, err := db.Exec(sqlStatement, id, user.Password)
 
 	if err != nil {
 		log.Fatalf("Tidak bisa mengeksekusi query ganti password. %v", err)
@@ -201,4 +221,32 @@ func RemoveUser(id int64, token string) int64 {
 	fmt.Printf("Total data yang terhapus %v", rowsAffected)
 
 	return rowsAffected
+}
+
+func ValidateUserPassword(enteredPassword string, storedPassword string) (bool, error) {
+	// Hash the entered password using the same salt as used during registration
+	// Salt location will be secured and salt are diff on each user.
+	//salt := []byte("AzureKey")
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(enteredPassword), 14)
+
+	if err != nil {
+		return false, err
+	}
+	
+	fmt.Printf("Validation - Generated Entered Password Salt %v\n\n", hashedPassword)
+	fmt.Printf("Validation - StoredPassword Salt %v\n", []byte(storedPassword))
+
+	// Compare the hashed password from the validation with the stored hashed password
+return bcrypt.CompareHashAndPassword(hashedPassword,[]byte(storedPassword)) == nil, nil
+}
+
+func ValidatePasswordToEncrypt (password string) (string, error){
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(hashedPassword), nil
 }
