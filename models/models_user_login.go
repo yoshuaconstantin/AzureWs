@@ -12,8 +12,8 @@ import (
 	_ "github.com/lib/pq" // postgres golang driver
 
 	"AzureWS/config"
+	"AzureWS/session"
 	"AzureWS/validation"
-
 )
 
 // Buku schema dari tabel Buku
@@ -60,7 +60,7 @@ func AddUser(user User) (int64, error) {
 		if errUuid != nil {
 			fmt.Printf("\nCREATE USER - error generating UUID: %v\n", errUuid)
 		}
-		
+
 		var fixedUserId string = userID.String()
 		//Encrypt password using salt
 		//salt := []byte("AzureKey")
@@ -76,28 +76,39 @@ func AddUser(user User) (int64, error) {
 		sum := md5.Sum([]byte(user.Password + user.Username + now.String()))
 		tokenGenerated := hex.EncodeToString(sum[:])
 
-		// Scan function akan menyimpan insert id didalam id id
-		err := db.QueryRow(sqlStatement, fixedUserId, user.Username, hashedPassword, tokenGenerated).Scan(&id)
+		createNewSession, errCreateNewSession := session.CreateNewSession(fixedUserId)
 
-		if err != nil {
-			log.Fatalf("\nCREATE USER - Tidak Bisa mengeksekusi query. %v\n", err)
+		if errCreateNewSession != nil {
+			return 0, errCreateNewSession
 		}
 
-		fmt.Printf("\nCREATE USER - Insert data single record into user login %v\n", id)
+		if createNewSession {
 
-		//Insert InitDashboards
-		initDashboards, error := InitDashboardsDataSet(fixedUserId)
+			err := db.QueryRow(sqlStatement, fixedUserId, user.Username, hashedPassword, tokenGenerated).Scan(&id)
 
-		if error != nil {
-			return 0, error
-		}
+			if err != nil {
+				log.Fatalf("\nCREATE USER - Tidak Bisa mengeksekusi query. %v\n", err)
+			}
 
-		// return insert id
-		if initDashboards {
-			return id, nil
+			fmt.Printf("\nCREATE USER - Insert data single record into user login %v\n", id)
+
+			//Insert InitDashboards
+			initDashboards, error := InitDashboardsDataSet(fixedUserId)
+
+			if error != nil {
+				return 0, error
+			}
+
+			// return insert id
+			if initDashboards {
+				return id, nil
+			} else {
+				return 0, fmt.Errorf("%s", "\nCREATE USER - Failed to insert Init Dashboards Data\n")
+			}
 		} else {
-			return 0, fmt.Errorf("%s", "\nCREATE USER - Failed to insert Init Dashboards Data\n")
+			return 0, fmt.Errorf("%s", "\nCREATE SESSION - Failed to create new session\n")
 		}
+
 	} else {
 		return 0, errUsername
 	}
