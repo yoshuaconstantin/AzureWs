@@ -15,6 +15,7 @@ import (
 
 )
 
+// Check session if still active or not
 func CheckSession(userId string) (bool, error) {
 	// Connect to the database.
 	db := config.CreateConnection()
@@ -51,6 +52,7 @@ func CheckSession(userId string) (bool, error) {
 	}
 }
 
+// Create new session when users create new account
 func CreateNewSession(userId string) (bool, error) {
 	// Connect to the database.
 	db := config.CreateConnection()
@@ -83,6 +85,7 @@ func CreateNewSession(userId string) (bool, error) {
 	return true, nil
 }
 
+// Generate sessionId random string
 func GenerateSessionID() (string, error) {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)

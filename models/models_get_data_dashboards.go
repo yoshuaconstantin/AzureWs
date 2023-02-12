@@ -63,7 +63,7 @@ func GetDashboardsData(userId string) ([]DashboardsData, error) {
 		rows, err := db.Query(sqlStatement, userId)
 
 		if err != nil {
-			log.Fatalf("GET DASHBOARDS DATA ERROR - tidak bisa mengeksekusi query. %v", err)
+			log.Fatalf("\nGET DASHBOARDS DATA ERROR - tidak bisa mengeksekusi query. %v\n", err)
 		}
 
 		defer rows.Close()
@@ -74,7 +74,7 @@ func GetDashboardsData(userId string) ([]DashboardsData, error) {
 			err = rows.Scan(&dashboardData.ProfileCount, &dashboardData.ProfileRank, &dashboardData.ThermalCount, &dashboardData.ThermalRank, &dashboardData.DozeCount, &dashboardData.DozeRank)
 
 			if err != nil {
-				log.Fatalf("GET DASHBOARDS DATA ERROR - tidak bisa mengambil data semua dashboards. %v", err)
+				log.Fatalf("\nGET DASHBOARDS DATA ERROR - tidak bisa mengambil data semua dashboards. %v\n", err)
 			}
 
 			dashboardsData = append(dashboardsData, dashboardData)
@@ -84,9 +84,8 @@ func GetDashboardsData(userId string) ([]DashboardsData, error) {
 		// return empty buku atau jika error
 		return dashboardsData, err
 	} else {
-		return nil, fmt.Errorf("%s", "\n CHECK SESSION - SESSION EXPIRED")
+		return nil, fmt.Errorf("%s", "\nCHECK SESSION - SESSION EXPIRED\n")
 	}
-
 }
 
 func UpdateDashboardsData(userId string, mode string) (bool, error) {
@@ -110,12 +109,12 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 
 	column, ok := modeMapCount[mode]
 	if !ok {
-		return false, fmt.Errorf("%s %s", "UPDATE DASHBOARDS DATA ERROR - Invalid userID", userId)
+		return false, fmt.Errorf("%s %s", "\nUPDATE DASHBOARDS DATA ERROR - Invalid userID\n", userId)
 	}
 
 	columnRank, ok := modeMapRank[mode]
 	if !ok {
-		return false, fmt.Errorf("%s %s", "UPDATE DASHBOARDS DATA ERROR - Invalid mode", mode)
+		return false, fmt.Errorf("%s %s", "\nUPDATE DASHBOARDS DATA ERROR - Invalid mode\n", mode)
 	}
 
 	//Check Session first before exec the query
@@ -136,7 +135,7 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 		}
 
 		if err != nil {
-			log.Fatalf("UPDATE DASHBOARDS DATA ERROR - Error executing the SQL statement: %v", err)
+			log.Fatalf("\nUPDATE DASHBOARDS DATA ERROR - Error executing the SQL statement: %v\n", err)
 			return false, err
 		}
 
@@ -172,7 +171,7 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 			res, errUpdate := db.Exec(sqlStatement, resultInt, updatedRank, userId)
 
 			if errUpdate != nil {
-				log.Fatalf("UPDATE DASHBOARDS DATA ERROR - Error executing the SQL statement: %v", err)
+				log.Fatalf("\nUPDATE DASHBOARDS DATA ERROR - Error executing the SQL statement: %v\n", err)
 				return false, errUpdate
 			}
 
@@ -185,14 +184,13 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 			if rowsAffected == 1 {
 				return true, nil
 			} else {
-				return false, fmt.Errorf("%s %d", "UPDATE DASHBOARDS DATA ERROR - Expected to affect 1 row, but affected", rowsAffected)
+				return false, fmt.Errorf("%s %d", "\nUPDATE DASHBOARDS DATA ERROR - Expected to affect 1 row, but affected \n", rowsAffected)
 			}
 
 		} else {
 			return false, err
 		}
 	} else {
-		return false, fmt.Errorf("%s", "\n CHECK SESSION - SESSION EXPIRED")
+		return false, fmt.Errorf("%s", "\nCHECK SESSION - SESSION EXPIRED\n")
 	}
-
 }

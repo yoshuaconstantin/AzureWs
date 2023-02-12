@@ -20,7 +20,6 @@ import (
  */
 
 type responseUserLogin struct {
-	ID      int64  `json:"id,omitempty"`
 	Message string `json:"message,omitempty"`
 	Status  int    `json:"status,omitempty"`
 }
@@ -47,7 +46,17 @@ type LoginData struct {
 	Password string `json:"password"`
 }
 
-// TambahUser
+type PasswordData struct {
+	Token string `json:"token"`
+	Password string `json:"password"`
+}
+
+type TokenData struct {
+	Token string `json:"token"`
+	Password string `json:"password"`
+}
+
+
 func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -60,7 +69,7 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&user)
 
 	if err != nil {
-		log.Fatalf("Tidak bisa mendecode dari request body.  %v", err)
+		log.Fatalf("\nCREATE NEW USER - Cannot get request body : %v\n", err)
 	}
 
 	// panggil modelsnya lalu insert User
@@ -87,7 +96,6 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 			var response responseUserLogin
 			response.Status = http.StatusOK
 			response.Message = "Data user baru telah di tambahkan"
-			response.ID = insertID
 	
 			// kirim response
 			w.WriteHeader(http.StatusOK)
@@ -179,7 +187,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 		if err == nil {
 			if token != "" {
-				fmt.Printf("Token = %v", token)
+				fmt.Printf("\nPASSWORD VALIDATION - User Token = %v\n", token)
 				// Kirim respon token kalau tidak kosong
 				var response ResponseUserToken
 				response.Status = http.StatusOK
@@ -225,7 +233,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Ambil semua data User
+
 func GetAllUsr(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -256,86 +264,76 @@ func GetAllUsr(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// Update User Password func
 func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Context-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// kita ambil request parameter idnya
-	params := mux.Vars(r)
+	var updatePswdModel PasswordData
 
-	// konversikan ke int yang sebelumnya adalah string
-	id, err := strconv.Atoi(params["id"])
-
-	if err != nil {
-		log.Fatalf("Tidak bisa mengubah dari string ke int.  %v", err)
-	}
-
-	// buat variable User dengan type models.User
-	var user models.User
-
-	// decode json request ke variable User
-	err = json.NewDecoder(r.Body).Decode(&user)
+	err := json.NewDecoder(r.Body).Decode(&updatePswdModel)
 
 	if err != nil {
-		log.Fatalf("Tidak bisa decode request body.  %v", err)
+		res := responseUserLogin{
+			Message: "Cannot get request body",
+			Status:  http.StatusBadRequest,
+		}
+		
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(res)
 	}
 
-	// panggil updateUser untuk mengupdate data
-	updatedRows := models.UpdatePasswordUser(int64(id), user)
+	_, errUpdatePswd := models.UpdatePasswordUser(updatePswdModel.Token, updatePswdModel.Password)
 
-	// ini adalah format message berupa string
-	msg := fmt.Sprintf("User Password diupdate. Jumlah yang diupdate %v rows/record", updatedRows)
+	if errUpdatePswd != nil {
+		res := responseUserLogin{
+			Message: errUpdatePswd.Error(),
+			Status:  http.StatusOK,
+		}
+		
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(res)
+	}
 
-	// ini adalah format response message
 	res := responseUserLogin{
-		ID:      int64(id),
-		Message: msg,
+		Message: "Update password succes",
 		Status:  http.StatusOK,
 	}
 
-	// kirim berupa response
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(res)
 }
 
-// delete user
+// Delete User func
 func DltUsr(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Context-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// kita ambil request parameter idnya
-	params := mux.Vars(r)
+	var tokenModel TokenData
 
-	// konversikan ke int yang sebelumnya adalah string
-	id, err := strconv.Atoi(params["id"])
+	err := json.NewDecoder(r.Body).Decode(&tokenModel)
 
 	if err != nil {
-		log.Fatalf("Tidak bisa mengubah dari string ke int.  %v", err)
+		log.Fatalf("DELETE USER - Error : %v", err)
 	}
 
-	token, ok := params["token"]
+	_, errDeleteUser := models.RemoveUser(tokenModel.Token)
 
-	if !ok {
-		log.Fatalf("Data token tidak ada.  %v", ok)
+	if errDeleteUser != nil {
 
-		resFailed := responseUserLogin{
-			ID:      int64(id),
-			Message: "Data token tidak ada, silahkan masukan token",
-			Status:  http.StatusBadRequest,
-		}
-
-		json.NewEncoder(w).Encode(resFailed)
+		var response responseUserLogin
+		response.Message = "Delete user operation failed"
+		response.Status = http.StatusBadRequest
+		
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 
 	}
 
-	// panggil fungsi hapusUser , dan convert int ke int64, masukin param token dari request
-	deletedRows := models.RemoveUser(int64(id), token)
+	var response responseUserLogin
+	response.Message = "Delete user operation success"
+	response.Status = http.StatusOK
 
-	// ini adalah format message berupa string
-	msg := fmt.Sprintf("User Removed. Total data yang dihapus %v", deletedRows)
-
-	// ini adalah format reponse message
-	res := responseUserLogin{
-		ID:      int64(id),
-		Message: msg,
-	}
-
-	// send the response
-	json.NewEncoder(w).Encode(res)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }

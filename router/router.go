@@ -1,20 +1,14 @@
 package router
 
 import (
-	"AzureWS/controller"
-
 	"github.com/gorilla/mux"
+
+	"AzureWS/controller"
 )
 
 func Router() *mux.Router {
 
 	router := mux.NewRouter()
-
-	router.HandleFunc("/api/buku", controller.AmbilSemuaBuku).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/buku/{id}", controller.AmbilBuku).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/buku", controller.TmbhBuku).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/buku/{id}", controller.UpdateBuku).Methods("PUT", "OPTIONS")
-	router.HandleFunc("/api/buku/{id}", controller.HapusBuku).Methods("DELETE", "OPTIONS")
 
 	// User_Login API
 	router.HandleFunc("/api/users", controller.GetAllUsr).Methods("GET", "OPTIONS")
@@ -29,4 +23,4 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/home/update/dashboard/data", controller.UpdtDshbrdDat).Methods("POST", "OPTIONS")
 
 	return router
-}	
+}

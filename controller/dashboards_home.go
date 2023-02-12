@@ -38,6 +38,7 @@ type UpdateDashboardsData struct {
 	Mode   string `json:"mode"`
 }
 
+// Get User Dashboards Data based on current user
 func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -97,6 +98,7 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// Update User Dashboards Data base on current user
 func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")

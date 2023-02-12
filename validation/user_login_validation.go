@@ -11,9 +11,9 @@ import (
 	//"golang.org/x/crypto/bcrypt"
 
 	"AzureWS/config"
-
 )
 
+// Validate users login to get token
 func Validate(username, password string) (string, error) {
 	// Connect to the database.
 	db := config.CreateConnection()
@@ -46,6 +46,7 @@ func Validate(username, password string) (string, error) {
 	}
 }
 
+// Validate users token to get user id
 func ValidateTokenGetUuid(token string) (string, error) {
 	// Connect to the database.
 	db := config.CreateConnection()
@@ -56,9 +57,8 @@ func ValidateTokenGetUuid(token string) (string, error) {
 	// Create a SQL query to retrieve the token based on the username and password.
 	sqlStatement := `SELECT user_id FROM user_login WHERE token = $1`
 
-
-	//token print 
-	fmt.Printf("Validation - Token Entered %v\n", token)
+	//token print
+	fmt.Printf("\nToken Validation - Token Entered %v\n", token)
 
 	// Execute the SQL statement.
 	var uuid sql.NullString
@@ -66,7 +66,7 @@ func ValidateTokenGetUuid(token string) (string, error) {
 
 	// If the user is not found, return an error.
 	if err == sql.ErrNoRows {
-		return "", fmt.Errorf("user not found")
+		return "", fmt.Errorf("%s", "Token Validation - user not found")
 	}
 
 	// If there's an error in executing the SQL statement, return the error.
@@ -78,10 +78,11 @@ func ValidateTokenGetUuid(token string) (string, error) {
 	if uuid.Valid {
 		return uuid.String, nil
 	} else {
-		return "", fmt.Errorf("INVALID USER ID")
+		return "", fmt.Errorf("%s", "Token Validation - Invalid Token")
 	}
 }
 
+// Validate users username to get stored password
 func ValidateGetStoredPassword(username string) (string, error) {
 
 	db := config.CreateConnection()
@@ -107,9 +108,9 @@ func ValidateGetStoredPassword(username string) (string, error) {
 	}
 
 	return password.String, nil
-
 }
 
+// Validate username when user create an account
 func ValidateCreateNewUsername(username string) (bool, error) {
 	db := config.CreateConnection()
 
@@ -125,13 +126,12 @@ func ValidateCreateNewUsername(username string) (bool, error) {
 	err := db.QueryRow(sqlStatement, username).Scan(&result)
 
 	if err == sql.ErrNoRows {
-		fmt.Printf("Masuk kedalam tidak ada row = sukses\n")
+		fmt.Printf("\nVALIDATE USERNAME - No rows\n")
 		return true, nil
 	}
 
 	if err != nil {
-		fmt.Printf("Masuk kedalam error false")
-		log.Fatalf("Error executing the SQL statement: %v", err)
+		log.Fatalf("\nVALIDATE USERNAME - Error executing the SQL statement: %v\n", err)
 		return false, err
 	}
 
@@ -142,6 +142,7 @@ func ValidateCreateNewUsername(username string) (bool, error) {
 	}
 }
 
+// Validate users password before login into account
 func ValidateUserPassword(enteredPassword string, storedPassword string) (bool, error) {
 	// Hash the entered password using the same salt as used during registration
 	// Salt location will be secured and salt are diff on each user.
@@ -165,9 +166,9 @@ func ValidateUserPassword(enteredPassword string, storedPassword string) (bool, 
 	} else {
 		return false, fmt.Errorf("%s", "Password didnt match")
 	}
-
 }
 
+// Validate user password to get encrypted password
 func ValidatePasswordToEncrypt(password string) (string, error) {
 	// hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 

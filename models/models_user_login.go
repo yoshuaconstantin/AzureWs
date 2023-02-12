@@ -14,10 +14,9 @@ import (
 	"AzureWS/config"
 	"AzureWS/session"
 	"AzureWS/validation"
+
 )
 
-// Buku schema dari tabel Buku
-// kita coba dengan jika datanya null
 // jika return datanya ada yg null, silahkan pake NullString, contohnya dibawah
 // Var       config.NullString `json:"var"`
 
@@ -185,63 +184,93 @@ func GetSingleUser(id int64) (User, error) {
 }
 
 // update user in the DB
-func UpdatePasswordUser(id int64, user User) int64 {
+func UpdatePasswordUser(token, password string) (int64, error) {
 
-	// mengkoneksikan ke db postgres
 	db := config.CreateConnection()
 
-	// kita tutup koneksinya di akhir proses
 	defer db.Close()
 
-	//As for now just use username, later should be validate and based on userId
-	sqlStatement := `UPDATE user_login SET password=$2, WHERE username`
+	sqlStatement := `UPDATE user_login SET password=$1, WHERE user_id = $2`
 
-	// eksekusi sql statement
-	res, err := db.Exec(sqlStatement, id, user.Password)
 
-	if err != nil {
-		log.Fatalf("Tidak bisa mengeksekusi query ganti password. %v", err)
+	sessionValidation, errSessionValidate := session.CheckSession(token)
+
+	if errSessionValidate != nil {
+		return 0, errSessionValidate
 	}
 
-	// cek berapa banyak row/data yang diupdate
+	if sessionValidation {
+
+	//Validate token to get user id
+	getUserId , errTokenValidate := validation.ValidateTokenGetUuid(token)
+
+	if errTokenValidate != nil {
+		return 0, errTokenValidate
+	}
+
+	res, err := db.Exec(sqlStatement, password, getUserId)
+
+	if err != nil {
+		log.Fatalf("\nUpdate Password - Tidak bisa mengeksekusi query ganti password. %v\n", err)
+	}
+
 	rowsAffected, err := res.RowsAffected()
 
-	//kita cek
 	if err != nil {
-		log.Fatalf("Error ketika mengecheck rows/data yang diupdate. %v", err)
+		log.Fatalf("\nUpdate Password - Error ketika mengecheck rows/data yang diupdate. %v\n", err)
 	}
 
-	fmt.Printf("Total rows/record yang diupdate %v\n", rowsAffected)
+	fmt.Printf("\nUpdate Password - State succes\n")
 
-	return rowsAffected
+	return rowsAffected, nil
+
+	} else {
+		return 0, fmt.Errorf("%s", "\nUPDATE USER - Session Expired\n")
+	}
 }
 
-func RemoveUser(id int64, token string) int64 {
+func RemoveUser(token string) (string, error) {
 
-	// mengkoneksikan ke db postgres
 	db := config.CreateConnection()
 
-	// kita tutup koneksinya di akhir proses
 	defer db.Close()
 
-	// buat sql query
-	sqlStatement := `DELETE FROM user_login WHERE id=$1 AND WHERE token=$2`
+	sqlStatement := `DELETE FROM user_login WHERE user_id=$2`
 
-	// eksekusi sql statement
-	res, err := db.Exec(sqlStatement, id, token)
+	sessionValidation, errSessionValidate := session.CheckSession(token)
 
-	if err != nil {
-		log.Fatalf("tidak bisa mengeksekusi query delete user. %v", err)
+	if errSessionValidate != nil {
+		return "", errSessionValidate
 	}
 
-	// cek berapa jumlah data/row yang di hapus
-	rowsAffected, err := res.RowsAffected()
+	if sessionValidation {
 
-	if err != nil {
-		log.Fatalf("tidak bisa mencari data. %v", err)
+		getUserId , errTokenValidate := validation.ValidateTokenGetUuid(token)
+
+		if errTokenValidate != nil {
+			return "", errTokenValidate
+		}
+	
+		// eksekusi sql statement
+		res, err := db.Exec(sqlStatement, getUserId)
+	
+		if err != nil {
+			log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", err)
+	
+			return "", err
+		}
+	
+		// cek berapa jumlah data/row yang di hapus
+		rowsAffected, err := res.RowsAffected()
+	
+		if err != nil {
+			log.Fatalf("tidak bisa mencari data. %v", err)
+		}
+	
+		fmt.Printf("Total data yang terhapus %v", rowsAffected)
+	
+		return "DELETE USER - Operation succes", nil
+	} else {
+		return "", fmt.Errorf("%s", "DELETE USER - Session Expired")
 	}
-
-	fmt.Printf("Total data yang terhapus %v", rowsAffected)
-
-	return rowsAffected
 }
