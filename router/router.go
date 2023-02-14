@@ -22,5 +22,9 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/home/dashboards", controller.GetDshbrdDat).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/home/update/dashboard/data", controller.UpdtDshbrdDat).Methods("POST", "OPTIONS")
 
+	// User Profile using token
+	router.HandleFunc("/api/home/user/profile", controller.UploadImage).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/home/user/upload/image", controller.InsertDataProfile).Methods("POST", "OPTIONS")
+
 	return router
 }
