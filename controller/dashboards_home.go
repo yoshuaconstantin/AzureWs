@@ -4,13 +4,14 @@ import (
 	"encoding/json" // package untuk enkode dan mendekode json menjadi struct dan sebaliknya
 	"log"
 	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
+
 	// digunakan untuk mendapatkan parameter dari router
 
 	_ "github.com/lib/pq" // postgres golang driver
 
 	"AzureWS/models" //models package dimana User didefinisikan
+	"AzureWS/session"
 	"AzureWS/validation"
-
 )
 
 /*
@@ -35,7 +36,7 @@ type GetTokenUser struct {
 
 type UpdateDashboardsData struct {
 	Token string `json:"token"`
-	Mode   string `json:"mode"`
+	Mode  string `json:"mode"`
 }
 
 // Get User Dashboards Data based on current user
@@ -70,6 +71,26 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 
 		return
+	}
+
+	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
+
+	if errSessionCheck != nil {
+		var response responseUserProfile
+		response.Status = http.StatusForbidden
+		response.Message = errSessionCheck.Error()
+
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(response)
+	}
+
+	if !SessionValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Session Expired"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 	}
 
 	datas, err := models.GetDashboardsData(userId)
@@ -128,6 +149,26 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 
 		return
+	}
+
+	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
+
+	if errSessionCheck != nil {
+		var response responseUserProfile
+		response.Status = http.StatusForbidden
+		response.Message = errSessionCheck.Error()
+
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(response)
+	}
+
+	if !SessionValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Session Expired"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 	}
 
 	boolResult, err := models.UpdateDashboardsData(userId, modelUpdate.Mode)

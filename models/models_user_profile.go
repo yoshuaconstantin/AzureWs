@@ -1,13 +1,12 @@
 package models
 
 import (
-	"fmt"
 	"log"
-	"AzureWS/config"
-	"AzureWS/session"
-	"AzureWS/validation"
 
 	_ "github.com/lib/pq" // postgres golang driver
+
+	"AzureWS/config"
+
 )
 
 type UserProfileData struct {
@@ -15,7 +14,7 @@ type UserProfileData struct {
 	Nickname     *string `json:"nickname,omitempty"`
 	Age          *int    `json:"age,omitempty"`
 	Gender       *string `json:"gender,omitempty"`
-	ImageUrl    *string `json:"image_url,omitempty"`
+	ImageUrl     *string `json:"image_url,omitempty"`
 	CreatedSince *string `json:"created_since,omitempty"`
 	Token        *string `json:"token,omitempty"`
 }
@@ -24,35 +23,19 @@ type GetUserProfileData struct {
 	Nickname     *string `json:"nickname,omitempty"`
 	Age          *int    `json:"age,omitempty"`
 	Gender       *string `json:"gender,omitempty"`
-	ImageUrl    *string `json:"image_url,omitempty"`
+	ImageUrl     *string `json:"image_url,omitempty"`
 	CreatedSince *string `json:"created_since,omitempty"`
 }
 
-
 // Can be used to insert and update profile data
-func InsertUserProfileToDatabase(userData UserProfileData) (string, error) {
+func InsertUserProfileToDatabase(userData UserProfileData, userId string) (string, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
 
 	sqlStatement := `INSERT INTO user_profile (user_id, nickname, age, gender, image_url, created_since) VALUES ($1, $2, $3, $4, $5, $6)`
 
-	GetUserID, errGetUuid := validation.ValidateTokenGetUuid(*userData.Token)
-
-	if errGetUuid != nil {
-		return "", errGetUuid
-	}
-
-
-	SessionValidation, errSessionCheck := session.CheckSession(GetUserID)
-
-	if errSessionCheck != nil {
-		return "", errSessionCheck
-	}
-
-	if SessionValidation {
-
-		_, err := db.Exec(sqlStatement, GetUserID, userData.Nickname, userData.Age, userData.Gender, userData.ImageUrl, userData.CreatedSince)
+		_, err := db.Exec(sqlStatement, userId, userData.Nickname, userData.Age, userData.Gender, userData.ImageUrl, userData.CreatedSince)
 
 		if err != nil {
 			log.Fatalf("\nINSERT USER PROFILE - Cannot execute command : %v\n", err)
@@ -60,10 +43,9 @@ func InsertUserProfileToDatabase(userData UserProfileData) (string, error) {
 
 		return "Profile Updated", nil
 
-	} else {
-		return "", fmt.Errorf("%s", "SESSION VALIDATION - Session Expired")
-	}
+	
 }
+
 /*
 Get User profile data, for image it should just return the file name only
 then hit the img API to get the img url, store it to user model.
@@ -73,7 +55,7 @@ Task : Create endpoint for Hit image with GET method and Json filePath
 Step : Hit GetUserProfileData -> return:model -> hit GetImageData (request: userId, filename)
 return:imgUrl -> user should use Image.Network (Flutter)
 */
-func GetUserProfileDataFromDatabase(userId string) ([]GetUserProfileData, error){
+func GetUserProfileDataFromDatabase(userId string) ([]GetUserProfileData, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()

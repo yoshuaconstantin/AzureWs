@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"AzureWS/config"
 
 	_ "github.com/lib/pq"
 	//"golang.org/x/crypto/bcrypt"
+
+	"AzureWS/config"
 )
 
-// Check session if still active or not
-func CheckSession(userId string) (bool, error) {
+// Check session when login, should always return true to add expired
+func CheckSessionLogin(userId string) (bool, error) {
 	// Connect to the database.
 	db := config.CreateConnection()
 
@@ -22,11 +23,11 @@ func CheckSession(userId string) (bool, error) {
 	defer db.Close()
 
 	// Create a SQL query to retrieve the token based on the username and password.
-	sqlStatement := `SELECT is_active FROM user_session WHERE user_id = $1`
+	sqlStatement := `SELECT expired FROM user_session WHERE user_id = $1`
 
 	// Execute the SQL statement.
-	var isActive sql.NullString
-	err := db.QueryRow(sqlStatement, userId).Scan(&isActive)
+	var isExpired sql.NullString
+	err := db.QueryRow(sqlStatement, userId).Scan(&isExpired)
 
 	// If the user is not found, return an error.
 	if err == sql.ErrNoRows {
@@ -39,16 +40,28 @@ func CheckSession(userId string) (bool, error) {
 		return false, err
 	}
 
-	if isActive.Valid {
-		if isActive.String == "true" {
-			return true, nil
-		} else {
-			return false, fmt.Errorf("%s", "\nSESSION CHECKING - User do not have session active, re login!\n")
+	currentTime := time.Now()
+	expiry := currentTime.Add(time.Hour * 24 * 3)
+	expiryStr := expiry.Format("2006-01-02 15:04")
+
+	if isExpired.Valid {
+
+		// Add Duration of expired when login and session not expired
+		AddExpired := `UPDATE user_login SET expired = $1, WHERE user_id = $2`
+
+		_, err := db.Exec(AddExpired, expiryStr, userId)
+
+		if err != nil {
+			return false, fmt.Errorf("%s", "\nSESSION CHECKING - Cannot update new expired date\n")
 		}
+
+		return true, nil
 	} else {
-		return false, nil
+		return false, fmt.Errorf("%s", "\nSESSION CHECKING - Session is empty\n")
 	}
 }
+
+// Check Session after login
 func CheckSessionInside(userId string) (bool, error) {
 	// Connect to the database.
 	db := config.CreateConnection()
@@ -79,7 +92,7 @@ func CheckSessionInside(userId string) (bool, error) {
 	expiryStr := expiry.Format("2006-01-02 15:04")
 
 	if isExpired.Valid {
-		if  expiryStr > isExpired.String {
+		if expiryStr > isExpired.String {
 			return false, fmt.Errorf("%s", "\nSESSION CHECKING - Session Expired, log in again.\n")
 		} else {
 			return true, nil

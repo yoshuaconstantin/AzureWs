@@ -11,6 +11,7 @@ import (
 	_ "github.com/lib/pq"    // postgres golang driver
 
 	"AzureWS/models" //models package dimana User didefinisikan
+	"AzureWS/session"
 	"AzureWS/validation"
 
 )
@@ -47,15 +48,14 @@ type LoginData struct {
 }
 
 type PasswordData struct {
-	Token string `json:"token"`
+	Token    string `json:"token"`
 	Password string `json:"password"`
 }
 
 type TokenData struct {
-	Token string `json:"token"`
+	Token    string `json:"token"`
 	Password string `json:"password"`
 }
-
 
 func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/json")
@@ -88,15 +88,15 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 			var response ResponseAllError
 			response.Status = http.StatusConflict
 			response.Message = "Username already registered"
-	
+
 			// kirim response
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(response)
-		} else{
+		} else {
 			var response responseUserLogin
 			response.Status = http.StatusOK
 			response.Message = "Data user baru telah di tambahkan"
-	
+
 			// kirim response
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(response)
@@ -187,6 +187,40 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 		if err == nil {
 			if token != "" {
+
+				GetUserID, errGetUuid := validation.ValidateTokenGetUuid(token)
+
+				if errGetUuid != nil {
+					var response responseUserProfile
+					response.Status = http.StatusUnauthorized
+					response.Message = errGetUuid.Error()
+			
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(response)
+				}
+
+				checkLoginSession, errAddSession := session.CheckSessionLogin(GetUserID)
+
+				if errAddSession != nil {
+
+					var response ResponseUserToken
+					response.Status = http.StatusInternalServerError
+					response.Message = errAddSession.Error()
+					response.Token = token
+	
+					w.WriteHeader(http.StatusInternalServerError)
+					json.NewEncoder(w).Encode(response)
+				}
+
+				if !checkLoginSession {
+					var response responseUserProfile
+					response.Status = http.StatusUnauthorized
+					response.Message = "Contact Dev to fix this"
+			
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(response)
+				}
+
 				fmt.Printf("\nPASSWORD VALIDATION - User Token = %v\n", token)
 				// Kirim respon token kalau tidak kosong
 				var response ResponseUserToken
@@ -233,7 +267,6 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 func GetAllUsr(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -278,9 +311,44 @@ func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
 			Message: "Cannot get request body",
 			Status:  http.StatusBadRequest,
 		}
-		
+
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(res)
+	}
+
+	userId, errGetUuid := validation.ValidateTokenGetUuid(updatePswdModel.Token)
+
+	if errGetUuid != nil {
+		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
+
+		var response responseDashboards
+		response.Status = http.StatusInternalServerError
+		response.Message = "Error retrieving UserId"
+
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+
+		return
+	}
+
+	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
+
+	if errSessionCheck != nil {
+		var response responseUserProfile
+		response.Status = http.StatusForbidden
+		response.Message = errSessionCheck.Error()
+
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(response)
+	}
+
+	if !SessionValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Session Expired"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 	}
 
 	_, errUpdatePswd := models.UpdatePasswordUser(updatePswdModel.Token, updatePswdModel.Password)
@@ -290,7 +358,7 @@ func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
 			Message: errUpdatePswd.Error(),
 			Status:  http.StatusOK,
 		}
-		
+
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(res)
 	}
@@ -314,7 +382,46 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&tokenModel)
 
 	if err != nil {
-		log.Fatalf("DELETE USER - Error : %v", err)
+		res := responseUserLogin{
+			Message: "Cannot get request body",
+			Status:  http.StatusBadRequest,
+		}
+
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(res)
+	}
+
+	userId, errGetUuid := validation.ValidateTokenGetUuid(tokenModel.Token)
+
+	if errGetUuid != nil {
+		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
+
+		var response responseDashboards
+		response.Status = http.StatusInternalServerError
+		response.Message = "Error retrieving UserId"
+
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+	}
+
+	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
+
+	if errSessionCheck != nil {
+		var response responseUserProfile
+		response.Status = http.StatusForbidden
+		response.Message = errSessionCheck.Error()
+
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(response)
+	}
+
+	if !SessionValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Session Expired"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 	}
 
 	_, errDeleteUser := models.RemoveUser(tokenModel.Token)
@@ -324,7 +431,7 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 		var response responseUserLogin
 		response.Message = "Delete user operation failed"
 		response.Status = http.StatusBadRequest
-		
+
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(response)
 

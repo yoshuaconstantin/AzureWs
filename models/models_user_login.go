@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"AzureWS/config"
-	"AzureWS/session"
-	"AzureWS/validation"
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq" // postgres golang driver
+
+	"AzureWS/config"
+	"AzureWS/session"
+	"AzureWS/validation"
 )
 
 // jika return datanya ada yg null, silahkan pake NullString, contohnya dibawah
@@ -183,7 +184,7 @@ func GetSingleUser(id int64) (User, error) {
 }
 
 // update user in the DB
-func UpdatePasswordUser(token, password string) (int64, error) {
+func UpdatePasswordUser(userId, password string) (int64, error) {
 
 	db := config.CreateConnection()
 
@@ -191,22 +192,7 @@ func UpdatePasswordUser(token, password string) (int64, error) {
 
 	sqlStatement := `UPDATE user_login SET password=$1, WHERE user_id = $2`
 
-	//Validate token to get user id
-	getUserId , errTokenValidate := validation.ValidateTokenGetUuid(token)
-
-	if errTokenValidate != nil {
-		return 0, errTokenValidate
-	}
-
-	sessionValidation, errSessionValidate := session.CheckSession(token)
-
-	if errSessionValidate != nil {
-		return 0, errSessionValidate
-	}
-
-	if sessionValidation {
-
-	res, err := db.Exec(sqlStatement, password, getUserId)
+	res, err := db.Exec(sqlStatement, password, userId)
 
 	if err != nil {
 		log.Fatalf("\nUpdate Password - Tidak bisa mengeksekusi query ganti password. %v\n", err)
@@ -222,12 +208,9 @@ func UpdatePasswordUser(token, password string) (int64, error) {
 
 	return rowsAffected, nil
 
-	} else {
-		return 0, fmt.Errorf("%s", "\nUPDATE USER - Session Expired\n")
-	}
 }
 
-func RemoveUser(token string) (string, error) {
+func RemoveUser(userId string) (string, error) {
 
 	db := config.CreateConnection()
 
@@ -235,39 +218,23 @@ func RemoveUser(token string) (string, error) {
 
 	sqlStatement := `DELETE FROM user_login WHERE user_id=$2`
 
-	getUserId , errTokenValidate := validation.ValidateTokenGetUuid(token)
+	// eksekusi sql statement
+	res, err := db.Exec(sqlStatement, userId)
 
-	if errTokenValidate != nil {
-		return "", errTokenValidate
+	if err != nil {
+		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", err)
+
+		return "", err
 	}
 
-	sessionValidation, errSessionValidate := session.CheckSession(token)
+	// cek berapa jumlah data/row yang di hapus
+	rowsAffected, err := res.RowsAffected()
 
-	if errSessionValidate != nil {
-		return "", errSessionValidate
+	if err != nil {
+		log.Fatalf("tidak bisa mencari data. %v", err)
 	}
 
-	if sessionValidation {
-		// eksekusi sql statement
-		res, err := db.Exec(sqlStatement, getUserId)
-	
-		if err != nil {
-			log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", err)
-	
-			return "", err
-		}
-	
-		// cek berapa jumlah data/row yang di hapus
-		rowsAffected, err := res.RowsAffected()
-	
-		if err != nil {
-			log.Fatalf("tidak bisa mencari data. %v", err)
-		}
-	
-		fmt.Printf("Total data yang terhapus %v", rowsAffected)
-	
-		return "DELETE USER - Operation succes", nil
-	} else {
-		return "", fmt.Errorf("%s", "DELETE USER - Session Expired")
-	}
+	fmt.Printf("Total data yang terhapus %v", rowsAffected)
+
+	return "DELETE USER - Operation succes", nil
 }

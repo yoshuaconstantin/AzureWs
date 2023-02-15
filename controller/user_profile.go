@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
 	"AzureWS/models"
-	"AzureWS/validation"
 	"AzureWS/session"
+	"AzureWS/validation"
 )
 
 type responseUserProfile struct {
@@ -23,28 +23,29 @@ type responseUserProfile struct {
 }
 
 type responseUserProfileData struct {
-	Message string `json:"message,omitempty"`
-	Status  int    `json:"status,omitempty"`
-	Data []models.GetUserProfileData `json:"data,omitempty"`
+	Message string                      `json:"message,omitempty"`
+	Status  int                         `json:"status,omitempty"`
+	Data    []models.GetUserProfileData `json:"data,omitempty"`
 }
 
 type responseUserProfileUploadImage struct {
-	Message string `json:"message,omitempty"`
-	Status  int    `json:"status,omitempty"`
+	Message  string `json:"message,omitempty"`
+	Status   int    `json:"status,omitempty"`
 	ImageUrl string `json:"image_url,omitempty"`
 }
 
 type uploadImageData struct {
 	Token string `json:"token"`
-    Data []byte `json:"data"`
+	Data  []byte `json:"data"`
 }
 
 /*
 <Documentation>
-	Step-by-step how to use this (currently untested yet) 
+	Step-by-step how to use this (currently untested yet)
 	- Upload an img byte from apps to UploadImage endpoint -> if success then server will return response with ImageUrl to user
 	- Hit InsertDataProfile endpoint and store the remaining data with stored ImageUrl from Upload
 	- Leave / Refresh the apps then hit GetDataProfile to get the whole data
+** Alt.Step : Hit only UploadImage to get image only to database (untested, unchecked flow)
 </Documentation>
 */
 
@@ -59,22 +60,22 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	getUserId , errTokenValidate := validation.ValidateTokenGetUuid(imageData.Token)
+	getUserId, errTokenValidate := validation.ValidateTokenGetUuid(imageData.Token)
 
 	if errTokenValidate != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
 
-	sessionValidation, errSessionValidate := session.CheckSession(getUserId)
+	sessionValidation, errSessionValidate := session.CheckSessionInside(getUserId)
 
 	if errSessionValidate != nil {
 		http.Error(w, errSessionValidate.Error(), http.StatusForbidden)
 	}
 
-	if !sessionValidation{
+	if !sessionValidation {
 		http.Error(w, "Session Expired", http.StatusForbidden)
 	}
-	
+
 	img, format, err := image.Decode(bytes.NewReader(imageData.Data))
 	if err != nil {
 		log.Println(err)
@@ -141,7 +142,38 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	insertDataProfile, errInsertUserProfile := models.InsertUserProfileToDatabase(userData)
+	GetUserID, errGetUuid := validation.ValidateTokenGetUuid(*userData.Token)
+
+	if errGetUuid != nil {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = errGetUuid.Error()
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+	}
+
+	SessionValidation, errSessionCheck := session.CheckSessionInside(GetUserID)
+
+	if errSessionCheck != nil {
+		var response responseUserProfile
+		response.Status = http.StatusForbidden
+		response.Message = errSessionCheck.Error()
+
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(response)
+	}
+
+	if !SessionValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Session Expired"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+	}
+
+	insertDataProfile, errInsertUserProfile := models.InsertUserProfileToDatabase(userData, GetUserID)
 
 	if errInsertUserProfile != nil {
 		var response responseUserProfile
@@ -162,7 +194,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get the profile data with path to local dir
-func GetDataProfile(w http.ResponseWriter, r *http.Request){
+func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
@@ -179,7 +211,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request){
 	}
 
 	getUserId, errGetUuid := validation.ValidateTokenGetUuid(token)
-	
+
 	if errGetUuid != nil {
 		var response responseUserProfile
 		response.Status = http.StatusUnauthorized
@@ -189,7 +221,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request){
 		json.NewEncoder(w).Encode(response)
 	}
 
-	checkSession, errCheckSession := session.CheckSession(getUserId)
+	checkSession, errCheckSession := session.CheckSessionInside(getUserId)
 
 	if errCheckSession != nil {
 		var response responseUserProfile
@@ -209,7 +241,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request){
 			var response responseUserProfile
 			response.Status = http.StatusConflict
 			response.Message = errGetDataProfile.Error()
-	
+
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(response)
 		}

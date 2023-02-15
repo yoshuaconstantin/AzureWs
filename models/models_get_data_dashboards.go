@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"AzureWS/config"
-	"AzureWS/session"
 
 	_ "github.com/lib/pq" // postgres golang driver
+
+	"AzureWS/config"
 )
 
 type DashboardsData struct {
@@ -51,40 +51,30 @@ func GetDashboardsData(userId string) ([]DashboardsData, error) {
 
 	sqlStatement := `SELECT profilecount, profilerank, thermalcount, thermalrank, dozecount, dozerank FROM dashboards_data WHERE user_id = $1`
 
-	//Check Session first before exec the query
-	checkSession, errCheckSession := session.CheckSession(userId)
+	rows, err := db.Query(sqlStatement, userId)
 
-	if errCheckSession != nil {
-		return nil, errCheckSession
+	if err != nil {
+		log.Fatalf("\nGET DASHBOARDS DATA ERROR - tidak bisa mengeksekusi query. %v\n", err)
 	}
 
-	if checkSession {
-		rows, err := db.Query(sqlStatement, userId)
+	defer rows.Close()
+
+	for rows.Next() {
+		var dashboardData DashboardsData
+
+		err = rows.Scan(&dashboardData.ProfileCount, &dashboardData.ProfileRank, &dashboardData.ThermalCount, &dashboardData.ThermalRank, &dashboardData.DozeCount, &dashboardData.DozeRank)
 
 		if err != nil {
-			log.Fatalf("\nGET DASHBOARDS DATA ERROR - tidak bisa mengeksekusi query. %v\n", err)
+			log.Fatalf("\nGET DASHBOARDS DATA ERROR - tidak bisa mengambil data semua dashboards. %v\n", err)
 		}
 
-		defer rows.Close()
+		dashboardsData = append(dashboardsData, dashboardData)
 
-		for rows.Next() {
-			var dashboardData DashboardsData
-
-			err = rows.Scan(&dashboardData.ProfileCount, &dashboardData.ProfileRank, &dashboardData.ThermalCount, &dashboardData.ThermalRank, &dashboardData.DozeCount, &dashboardData.DozeRank)
-
-			if err != nil {
-				log.Fatalf("\nGET DASHBOARDS DATA ERROR - tidak bisa mengambil data semua dashboards. %v\n", err)
-			}
-
-			dashboardsData = append(dashboardsData, dashboardData)
-
-		}
-
-		// return empty buku atau jika error
-		return dashboardsData, err
-	} else {
-		return nil, fmt.Errorf("%s", "\nCHECK SESSION - SESSION EXPIRED\n")
 	}
+
+	// return empty buku atau jika error
+	return dashboardsData, err
+
 }
 
 func UpdateDashboardsData(userId string, mode string) (bool, error) {
@@ -116,80 +106,70 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 		return false, fmt.Errorf("%s %s", "\nUPDATE DASHBOARDS DATA ERROR - Invalid mode\n", mode)
 	}
 
-	//Check Session first before exec the query
-	checkSession, errCheckSession := session.CheckSession(userId)
+	sqlStatement := `SELECT ` + column + ` FROM dashboards_data WHERE user_id = $1`
 
-	if errCheckSession != nil {
-		return false, errCheckSession
+	var result sql.NullString
+	err := db.QueryRow(sqlStatement, userId).Scan(&result)
+
+	if err == sql.ErrNoRows {
+		return false, err
 	}
 
-	if checkSession {
-		sqlStatement := `SELECT ` + column + ` FROM dashboards_data WHERE user_id = $1`
+	if err != nil {
+		log.Fatalf("\nUPDATE DASHBOARDS DATA ERROR - Error executing the SQL statement: %v\n", err)
+		return false, err
+	}
 
-		var result sql.NullString
-		err := db.QueryRow(sqlStatement, userId).Scan(&result)
+	if result.Valid {
 
-		if err == sql.ErrNoRows {
-			return false, err
-		}
+		resultInt, err := strconv.Atoi(result.String)
 
 		if err != nil {
-			log.Fatalf("\nUPDATE DASHBOARDS DATA ERROR - Error executing the SQL statement: %v\n", err)
 			return false, err
 		}
 
-		if result.Valid {
+		var updatedRank string
 
-			resultInt, err := strconv.Atoi(result.String)
+		resultInt = resultInt + 1
 
-			if err != nil {
-				return false, err
-			}
-
-			var updatedRank string
-
-			resultInt = resultInt + 1
-
-			if resultInt > 20 {
-				updatedRank = "Enjoyer"
-			} else if resultInt > 60 {
-				updatedRank = "Madness"
-			} else if resultInt > 200 {
-				updatedRank = "Crazy"
-			} else if resultInt > 500 {
-				updatedRank = "Legends"
-			} else if resultInt > 2000 {
-				updatedRank = "PRO"
-			} else {
-				updatedRank = "Nubie"
-			}
-
-			sqlStatement := `UPDATE dashboards_data SET ` + column + ` = $1, ` + columnRank + ` = $2  WHERE user_id = $3`
-
-			//exec result + 1 each mode tapped
-			res, errUpdate := db.Exec(sqlStatement, resultInt, updatedRank, userId)
-
-			if errUpdate != nil {
-				log.Fatalf("\nUPDATE DASHBOARDS DATA ERROR - Error executing the SQL statement: %v\n", err)
-				return false, errUpdate
-			}
-
-			rowsAffected, err := res.RowsAffected()
-			if errUpdate != nil {
-				return false, err
-			}
-
-			// if update count succes, then next
-			if rowsAffected == 1 {
-				return true, nil
-			} else {
-				return false, fmt.Errorf("%s %d", "\nUPDATE DASHBOARDS DATA ERROR - Expected to affect 1 row, but affected \n", rowsAffected)
-			}
-
+		if resultInt > 20 {
+			updatedRank = "Enjoyer"
+		} else if resultInt > 60 {
+			updatedRank = "Madness"
+		} else if resultInt > 200 {
+			updatedRank = "Crazy"
+		} else if resultInt > 500 {
+			updatedRank = "Legends"
+		} else if resultInt > 2000 {
+			updatedRank = "PRO"
 		} else {
+			updatedRank = "Nubie"
+		}
+
+		sqlStatement := `UPDATE dashboards_data SET ` + column + ` = $1, ` + columnRank + ` = $2  WHERE user_id = $3`
+
+		//exec result + 1 each mode tapped
+		res, errUpdate := db.Exec(sqlStatement, resultInt, updatedRank, userId)
+
+		if errUpdate != nil {
+			log.Fatalf("\nUPDATE DASHBOARDS DATA ERROR - Error executing the SQL statement: %v\n", err)
+			return false, errUpdate
+		}
+
+		rowsAffected, err := res.RowsAffected()
+		if errUpdate != nil {
 			return false, err
 		}
+
+		// if update count succes, then next
+		if rowsAffected == 1 {
+			return true, nil
+		} else {
+			return false, fmt.Errorf("%s %d", "\nUPDATE DASHBOARDS DATA ERROR - Expected to affect 1 row, but affected \n", rowsAffected)
+		}
+
 	} else {
-		return false, fmt.Errorf("%s", "\nCHECK SESSION - SESSION EXPIRED\n")
+		return false, err
 	}
+
 }
