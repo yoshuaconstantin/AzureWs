@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-
-	_ "github.com/lib/pq" // postgres golang driver
-
 	"AzureWS/config"
 	"AzureWS/session"
+
+	_ "github.com/lib/pq" // postgres golang driver
 )
 
 type DashboardsData struct {
@@ -109,7 +108,7 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 
 	column, ok := modeMapCount[mode]
 	if !ok {
-		return false, fmt.Errorf("%s %s", "\nUPDATE DASHBOARDS DATA ERROR - Invalid userID\n", userId)
+		return false, fmt.Errorf("%s %s", "\nUPDATE DASHBOARDS DATA ERROR - Invalid mode\n", userId)
 	}
 
 	columnRank, ok := modeMapRank[mode]

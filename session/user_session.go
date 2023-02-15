@@ -7,12 +7,10 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"AzureWS/config"
 
 	_ "github.com/lib/pq"
 	//"golang.org/x/crypto/bcrypt"
-
-	"AzureWS/config"
-
 )
 
 // Check session if still active or not
@@ -46,6 +44,45 @@ func CheckSession(userId string) (bool, error) {
 			return true, nil
 		} else {
 			return false, fmt.Errorf("%s", "\nSESSION CHECKING - User do not have session active, re login!\n")
+		}
+	} else {
+		return false, nil
+	}
+}
+func CheckSessionInside(userId string) (bool, error) {
+	// Connect to the database.
+	db := config.CreateConnection()
+
+	// Close the connection at the end of the process.
+	defer db.Close()
+
+	// Create a SQL query to retrieve the token based on the username and password.
+	sqlStatement := `SELECT expired FROM user_session WHERE user_id = $1`
+
+	// Execute the SQL statement.
+	var isExpired sql.NullString
+	err := db.QueryRow(sqlStatement, userId).Scan(&isExpired)
+
+	// If the user is not found, return an error.
+	if err == sql.ErrNoRows {
+		return false, fmt.Errorf("%s", "\nSESSION CHECKING - Session not found\n")
+	}
+
+	// If there's an error in executing the SQL statement, return the error.
+	if err != nil {
+		log.Fatalf("\nSESSION CHECKING - Error executing the SQL statement: %v\n", err)
+		return false, err
+	}
+
+	currentTime := time.Now()
+	expiry := currentTime.Add(time.Hour * 24 * 3)
+	expiryStr := expiry.Format("2006-01-02 15:04")
+
+	if isExpired.Valid {
+		if  expiryStr > isExpired.String {
+			return false, fmt.Errorf("%s", "\nSESSION CHECKING - Session Expired, log in again.\n")
+		} else {
+			return true, nil
 		}
 	} else {
 		return false, nil

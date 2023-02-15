@@ -7,14 +7,12 @@ import (
 	"fmt"
 	"log"
 	"time"
-
-	"github.com/google/uuid"
-	_ "github.com/lib/pq" // postgres golang driver
-
 	"AzureWS/config"
 	"AzureWS/session"
 	"AzureWS/validation"
 
+	"github.com/google/uuid"
+	_ "github.com/lib/pq" // postgres golang driver
 )
 
 // jika return datanya ada yg null, silahkan pake NullString, contohnya dibawah
@@ -61,6 +59,7 @@ func AddUser(user User) (int64, error) {
 		}
 
 		var fixedUserId string = userID.String()
+
 		//Encrypt password using salt
 		//salt := []byte("AzureKey")
 		hashedPassword, errhashed := validation.ValidatePasswordToEncrypt(user.Password)
@@ -192,6 +191,12 @@ func UpdatePasswordUser(token, password string) (int64, error) {
 
 	sqlStatement := `UPDATE user_login SET password=$1, WHERE user_id = $2`
 
+	//Validate token to get user id
+	getUserId , errTokenValidate := validation.ValidateTokenGetUuid(token)
+
+	if errTokenValidate != nil {
+		return 0, errTokenValidate
+	}
 
 	sessionValidation, errSessionValidate := session.CheckSession(token)
 
@@ -200,13 +205,6 @@ func UpdatePasswordUser(token, password string) (int64, error) {
 	}
 
 	if sessionValidation {
-
-	//Validate token to get user id
-	getUserId , errTokenValidate := validation.ValidateTokenGetUuid(token)
-
-	if errTokenValidate != nil {
-		return 0, errTokenValidate
-	}
 
 	res, err := db.Exec(sqlStatement, password, getUserId)
 
@@ -237,6 +235,12 @@ func RemoveUser(token string) (string, error) {
 
 	sqlStatement := `DELETE FROM user_login WHERE user_id=$2`
 
+	getUserId , errTokenValidate := validation.ValidateTokenGetUuid(token)
+
+	if errTokenValidate != nil {
+		return "", errTokenValidate
+	}
+
 	sessionValidation, errSessionValidate := session.CheckSession(token)
 
 	if errSessionValidate != nil {
@@ -244,13 +248,6 @@ func RemoveUser(token string) (string, error) {
 	}
 
 	if sessionValidation {
-
-		getUserId , errTokenValidate := validation.ValidateTokenGetUuid(token)
-
-		if errTokenValidate != nil {
-			return "", errTokenValidate
-		}
-	
 		// eksekusi sql statement
 		res, err := db.Exec(sqlStatement, getUserId)
 	
