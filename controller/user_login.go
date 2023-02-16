@@ -6,14 +6,12 @@ import (
 	"log"
 	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
 	"strconv"  // package yang digunakan untuk mengubah string menjadi tipe int
-
-	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
-	_ "github.com/lib/pq"    // postgres golang driver
-
 	"AzureWS/models" //models package dimana User didefinisikan
 	"AzureWS/session"
 	"AzureWS/validation"
 
+	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
+	_ "github.com/lib/pq"    // postgres golang driver
 )
 
 /*
@@ -83,6 +81,7 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 		// kirim response
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(response)
+		return
 	} else {
 		if insertID == 0 {
 			var response ResponseAllError
@@ -92,6 +91,7 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 			// kirim response
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(response)
+			return
 		} else {
 			var response responseUserLogin
 			response.Status = http.StatusOK
@@ -177,8 +177,8 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		response.Message = "Password not match"
 
 		w.WriteHeader(http.StatusBadRequest)
-
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	if PasswordValidation {
@@ -197,6 +197,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 			
 					w.WriteHeader(http.StatusUnauthorized)
 					json.NewEncoder(w).Encode(response)
+					return
 				}
 
 				checkLoginSession, errAddSession := session.CheckSessionLogin(GetUserID)
@@ -210,6 +211,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	
 					w.WriteHeader(http.StatusInternalServerError)
 					json.NewEncoder(w).Encode(response)
+					return
 				}
 
 				if !checkLoginSession {
@@ -219,6 +221,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 			
 					w.WriteHeader(http.StatusUnauthorized)
 					json.NewEncoder(w).Encode(response)
+					return
 				}
 
 				fmt.Printf("\nPASSWORD VALIDATION - User Token = %v\n", token)
@@ -231,6 +234,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 
 				json.NewEncoder(w).Encode(response)
+				return
 
 			} else {
 				// kirim respon 500 kalau token kosong
@@ -243,6 +247,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 
 				json.NewEncoder(w).Encode(response)
+				return
 
 			}
 		} else {
@@ -254,6 +259,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 
 			json.NewEncoder(w).Encode(response)
+			return
 		}
 	} else {
 
@@ -262,8 +268,8 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		response.Message = "Password validating failed\n"
 
 		w.WriteHeader(http.StatusBadRequest)
-
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 }
 
@@ -314,6 +320,7 @@ func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(res)
+		return
 	}
 
 	userId, errGetUuid := validation.ValidateTokenGetUuid(updatePswdModel.Token)
@@ -340,6 +347,7 @@ func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	if !SessionValidation {
@@ -349,6 +357,7 @@ func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	_, errUpdatePswd := models.UpdatePasswordUser(updatePswdModel.Token, updatePswdModel.Password)
@@ -361,6 +370,7 @@ func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(res)
+		return
 	}
 
 	res := responseUserLogin{
@@ -370,6 +380,7 @@ func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(res)
+	
 }
 
 // Delete User func
@@ -389,10 +400,11 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(res)
+		return
 	}
 
 	userId, errGetUuid := validation.ValidateTokenGetUuid(tokenModel.Token)
-
+	
 	if errGetUuid != nil {
 		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
 
@@ -402,6 +414,7 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
@@ -413,6 +426,7 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	if !SessionValidation {
@@ -422,6 +436,7 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	_, errDeleteUser := models.RemoveUser(tokenModel.Token)
@@ -434,6 +449,7 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(response)
+		return
 
 	}
 
@@ -443,4 +459,5 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+	
 }

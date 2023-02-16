@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"AzureWS/config"
 
 	_ "github.com/lib/pq"
 	//"golang.org/x/crypto/bcrypt"
-
-	"AzureWS/config"
 )
 
 // Check session when login, should always return true to add expired
@@ -88,8 +87,7 @@ func CheckSessionInside(userId string) (bool, error) {
 	}
 
 	currentTime := time.Now()
-	expiry := currentTime.Add(time.Hour * 24 * 3)
-	expiryStr := expiry.Format("2006-01-02 15:04")
+	expiryStr := currentTime.Format("2006-01-02 15:04")
 
 	if isExpired.Valid {
 		if expiryStr > isExpired.String {

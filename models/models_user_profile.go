@@ -1,49 +1,79 @@
 package models
 
 import (
+	"AzureWS/config"
+	"bytes"
+	"fmt"
+	"image"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
 	"log"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	_ "github.com/lib/pq" // postgres golang driver
-
-	"AzureWS/config"
-
 )
 
 type UserProfileData struct {
-	UserId       *int    `json:"user_id,omitempty"`
-	Nickname     *string `json:"nickname,omitempty"`
-	Age          *int    `json:"age,omitempty"`
-	Gender       *string `json:"gender,omitempty"`
-	ImageUrl     *string `json:"image_url,omitempty"`
-	CreatedSince *string `json:"created_since,omitempty"`
-	Token        *string `json:"token,omitempty"`
+	UserId   *string `json:"user_id,omitempty"`
+	Nickname *string `json:"nickname,omitempty"`
+	Age      *string `json:"age,omitempty"`
+	Gender   *string `json:"gender,omitempty"`
+	ImageUrl *string `json:"image_url,omitempty"`
+	Token    *string `json:"token"`
 }
 
 type GetUserProfileData struct {
 	Nickname     *string `json:"nickname,omitempty"`
-	Age          *int    `json:"age,omitempty"`
+	Age          *string `json:"age,omitempty"`
 	Gender       *string `json:"gender,omitempty"`
 	ImageUrl     *string `json:"image_url,omitempty"`
 	CreatedSince *string `json:"created_since,omitempty"`
 }
 
-// Can be used to insert and update profile data
-func InsertUserProfileToDatabase(userData UserProfileData, userId string) (string, error) {
+// Init insert user profile with user id and the rest string null
+func InitUserProfileToDatabase(userId string) (bool, error) {
+
 	db := config.CreateConnection()
 
 	defer db.Close()
 
-	sqlStatement := `INSERT INTO user_profile (user_id, nickname, age, gender, image_url, created_since) VALUES ($1, $2, $3, $4, $5, $6)`
+	// Created Date for user
+	currentTime := time.Now()
+	CreatedDate := currentTime.Format("2006-01-02 15:04")
 
-		_, err := db.Exec(sqlStatement, userId, userData.Nickname, userData.Age, userData.Gender, userData.ImageUrl, userData.CreatedSince)
+	sqlStatement := `INSERT INTO user_profile (user_id, nickname, age, gender, image_url, created_since) VALUES ($1, '','','','',$2)`
 
-		if err != nil {
-			log.Fatalf("\nINSERT USER PROFILE - Cannot execute command : %v\n", err)
-		}
+	_, err := db.Exec(sqlStatement, userId, CreatedDate)
 
-		return "Profile Updated", nil
+	if err != nil {
+		log.Fatalf("\nINSERT USER PROFILE - Cannot execute command : %v\n", err)
+		return false, err
+	}
 
-	
+	return true, nil
+}
+
+// Can be used to insert and update profile data
+func UpdateUserProfileToDatabase(userData UserProfileData, userId string) (string, error) {
+	db := config.CreateConnection()
+
+	defer db.Close()
+
+	sqlStatement := `UPDATE user_profile SET nickname = $1, age = $2, gender = $3, image_url = $4 WHERE user_id = $5`
+
+	_, err := db.Exec(sqlStatement, userData.Nickname, userData.Age, userData.Gender, userData.ImageUrl, userData.UserId)
+
+	if err != nil {
+		log.Fatalf("\nUPDATE USER PROFILE - Cannot execute command : %v\n", err)
+		return "", err
+	}
+
+	return "Profile Updated", nil
 }
 
 /*
@@ -85,4 +115,168 @@ func GetUserProfileDataFromDatabase(userId string) ([]GetUserProfileData, error)
 	}
 
 	return profileData, nil
+}
+
+// Upload photo and update the database Image Url
+func UploadUserProfilePhotoBool(userId string, byteImage []byte) (bool, error) {
+	db := config.CreateConnection()
+
+	defer db.Close()
+
+	sqlStatement := `UPDATE user_profile SET image_url = $1 WHERE user_id = $2`
+
+	ImageUrl, errGetImgUrl := ConvertByteToImgString(byteImage, userId)
+
+	if errGetImgUrl != nil {
+		return false, errGetImgUrl
+	}
+
+	_, err := db.Exec(sqlStatement, ImageUrl, userId)
+
+	if err != nil {
+		log.Fatalf("\nUPLOAD USER PROFILE IMAGE - Cannot execute command : %v\n", err)
+		return false, err
+	}
+
+	return true, nil
+}
+
+// Process Byte To Img and save it with return of ImageUrl
+func ConvertByteToImgString(byteImage []byte, userId string) (string, error) {
+
+	img, format, err := image.Decode(bytes.NewReader(byteImage))
+	if err != nil {
+		log.Println(err)
+
+		return "", err
+	}
+
+	path := filepath.Join("FileAzure", "Data", "Image", userId, "profile")
+	err = os.MkdirAll(path, os.ModePerm)
+	if err != nil {
+		log.Println(err)
+
+		return "", err
+	}
+
+	// Choose a unique filename for the image
+	filename := fmt.Sprintf("%d.%s", time.Now().Unix(), format)
+	filepath := filepath.Join(path, filename)
+
+	// Create the file and write the image to it
+	f, err := os.Create(filepath)
+	if err != nil {
+		log.Println(err)
+
+		return "", err
+	}
+	defer f.Close()
+
+	var errEncodingImage error
+	switch format {
+	case "jpeg":
+		errEncodingImage = jpeg.Encode(f, img, nil)
+	case "png":
+		errEncodingImage = png.Encode(f, img)
+	case "gif":
+		errEncodingImage = gif.Encode(f, img, nil)
+	default:
+		errEncodingImage = jpeg.Encode(f, img, nil)
+	}
+
+	if errEncodingImage != nil {
+		log.Println(err)
+
+		return "", errEncodingImage
+	}
+
+	if err != nil {
+		log.Println(err)
+
+		return "", err
+	}
+
+	return fmt.Sprintf("http://localhost:8080/FileAzure/Data/Image/%s/profile/%s", userId, filename), nil
+}
+
+// Updating the users image and delete the old image
+func UpdateUserProfileImageBool(userId string, newImgUrl string, oldImgUrl string) (bool, error) {
+	db := config.CreateConnection()
+
+	defer db.Close()
+
+	sqlStatement := `UPDATE user_profile SET image_url = $1 WHERE user_id = $2`
+
+	_, err := db.Exec(sqlStatement, newImgUrl, userId)
+
+	if err != nil {
+		log.Fatalf("\nUPDATE USER PROFILE IMAGE - Cannot execute command : %v\n", err)
+		return false, err
+	}
+
+	DelOldImgUrl, errDelOldImgUrl := DeleteUsersFileImage(oldImgUrl)
+
+	if errDelOldImgUrl != nil {
+		return false, errDelOldImgUrl
+	}
+
+	if !DelOldImgUrl {
+		return false, fmt.Errorf("%s", "Cannot Delete the old img, contact dev!")
+	}
+
+	return true, nil
+}
+
+// Delete users image url from database
+func DeleteUserImageProfileBool(userId, oldImageUrl string) (bool, error) {
+	db := config.CreateConnection()
+
+	defer db.Close()
+
+	sqlStatement := `UPDATE user_profile SET image_url = '' WHERE user_id = $1`
+
+	_, err := db.Exec(sqlStatement, userId)
+
+	if err != nil {
+		log.Fatalf("\nDELETE USER PROFILE IMAGE - Cannot execute command : %v\n", err)
+		return false, err
+	}
+
+	DelOldImgUrl, errDelOldImgUrl := DeleteUsersFileImage(oldImageUrl)
+
+	if errDelOldImgUrl != nil {
+		return false, errDelOldImgUrl
+	}
+
+	if !DelOldImgUrl {
+		return false, fmt.Errorf("%s", "Cannot Delete the old img, contact dev!")
+	}
+
+	return true, nil
+}
+
+// Remove the users old image
+func DeleteUsersFileImage(oldImageUrl string) (bool, error) {
+
+	u, err := url.Parse(oldImageUrl)
+	if err != nil {
+		return false, err
+	}
+	path := u.Path
+
+	// Extract the folder and filename from the path
+	folders := strings.Split(path, "/")
+	if len(folders) < 3 {
+		return false, fmt.Errorf("%s %s", "Invalid image path: ", oldImageUrl)
+	}
+	folder := folders[4]
+	filename := folders[len(folders)-1]
+
+	// Delete the file
+	err = os.Remove(fmt.Sprintf("/AzureWS/FileAzure/Data/Image/%s/profile/%s", folder, filename))
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }

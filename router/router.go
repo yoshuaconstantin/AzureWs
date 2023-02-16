@@ -1,9 +1,9 @@
 package router
 
 import (
-	"github.com/gorilla/mux"
-
 	"AzureWS/controller"
+
+	"github.com/gorilla/mux"
 )
 
 func Router() *mux.Router {
@@ -23,8 +23,11 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/home/update/dashboard/data", controller.UpdtDshbrdDat).Methods("POST", "OPTIONS")
 
 	// User Profile using token
-	router.HandleFunc("/api/home/user/profile", controller.UploadImage).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/home/user/upload/image", controller.InsertDataProfile).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/home/user/profile/image", controller.UploadImage).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/home/user/profile/image", controller.UpdateImageProfile).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/api/home/user/profile/image", controller.DeleteImageProfile).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/api/home/user/profile", controller.InsertDataProfile).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/home/user/profile", controller.GetDataProfile).Methods("GET", "OPTIONS")
 
 	return router
 }

@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"log"
 	"time"
-
-	"github.com/google/uuid"
-	_ "github.com/lib/pq" // postgres golang driver
-
 	"AzureWS/config"
 	"AzureWS/session"
 	"AzureWS/validation"
+
+	"github.com/google/uuid"
+	_ "github.com/lib/pq" // postgres golang driver
 )
 
 // jika return datanya ada yg null, silahkan pake NullString, contohnya dibawah
@@ -98,12 +97,23 @@ func AddUser(user User) (int64, error) {
 				return 0, error
 			}
 
-			// return insert id
-			if initDashboards {
-				return id, nil
-			} else {
+			if !initDashboards {
 				return 0, fmt.Errorf("%s", "\nCREATE USER - Failed to insert Init Dashboards Data\n")
+			} 
+
+			//Insert InitProfile
+			InitProfileData, errInitProfileData := InitUserProfileToDatabase(fixedUserId)
+
+			if errInitProfileData != nil {
+				return 0, errInitProfileData
 			}
+
+			if !InitProfileData {
+				return 0, fmt.Errorf("%s", "\nINIT DATA PROFILE - Failed to insert Init Profile Data\n")
+			}
+
+			return 1, nil
+
 		} else {
 			return 0, fmt.Errorf("%s", "\nCREATE SESSION - Failed to create new session\n")
 		}

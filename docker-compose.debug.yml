@@ -1,0 +1,10 @@
+version: '3.4'
+
+services:
+  azurews:
+    image: azurews
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 8080:8080

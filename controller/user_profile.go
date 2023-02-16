@@ -1,20 +1,11 @@
 package controller
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"image"
-	"image/jpeg"
-	"log"
-	"net/http"
-	"os"
-	"path/filepath"
-	"time"
-
 	"AzureWS/models"
 	"AzureWS/session"
 	"AzureWS/validation"
+	"encoding/json"
+	"net/http"
 )
 
 type responseUserProfile struct {
@@ -36,7 +27,22 @@ type responseUserProfileUploadImage struct {
 
 type uploadImageData struct {
 	Token string `json:"token"`
-	Data  []byte `json:"data"`
+	Data []byte `json:"data"`
+}
+
+type updateProfileImageData struct {
+	Token		string `json:"token"`
+	OldImageUrl string `json:"oldImgUrl"`
+	Data		[]byte `json:"data"`
+}
+
+type deleteProfileImageData struct {
+	Token		string `json:"token"`
+	OldImageUrl string `json:"oldImgUrl"`
+}
+
+type tokenOnlyData struct {
+	Token string `json:"token"`
 }
 
 /*
@@ -58,67 +64,157 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	var imageData uploadImageData
 	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	getUserId, errTokenValidate := validation.ValidateTokenGetUuid(imageData.Token)
 
 	if errTokenValidate != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	sessionValidation, errSessionValidate := session.CheckSessionInside(getUserId)
 
 	if errSessionValidate != nil {
 		http.Error(w, errSessionValidate.Error(), http.StatusForbidden)
+		return
 	}
 
 	if !sessionValidation {
 		http.Error(w, "Session Expired", http.StatusForbidden)
-	}
-
-	img, format, err := image.Decode(bytes.NewReader(imageData.Data))
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Error decoding image", http.StatusBadRequest)
 		return
 	}
 
-	path := filepath.Join("FileAzure", "Data", "Image", getUserId, "profile")
-	err = os.MkdirAll(path, os.ModePerm)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Error creating directory", http.StatusInternalServerError)
+	// Func Convert from byte to image and return string.
+	UploadImageToDB, errUploadImageToDB := models.UploadUserProfilePhotoBool(getUserId, imageData.Data)
+
+	if errUploadImageToDB != nil {
+		http.Error(w, errUploadImageToDB.Error(), http.StatusNotAcceptable)
 		return
 	}
 
-	// Choose a unique filename for the image
-	filename := fmt.Sprintf("%d.%s", time.Now().Unix(), format)
-	filepath := filepath.Join(path, filename)
-
-	// Create the file and write the image to it
-	f, err := os.Create(filepath)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "UPLOAD IMAGE - Error creating file", http.StatusInternalServerError)
-		return
-	}
-	defer f.Close()
-	if format == "jpeg" {
-		err = jpeg.Encode(f, img, nil)
-	} else {
-		http.Error(w, "UPLOAD IMAGE - Format invalid", http.StatusInternalServerError)
-	}
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "UPLOAD IMAGE - Error encoding image", http.StatusInternalServerError)
+	if !UploadImageToDB {
+		http.Error(w, "Failed to upload Image Url to database", http.StatusNotAcceptable)
 		return
 	}
 
 	// Send back the response to user with file name
-	var response responseUserProfileUploadImage
+	var response responseUserProfile
 	response.Status = http.StatusOK
 	response.Message = "Success Upload Image"
-	response.ImageUrl = fmt.Sprintf("http://localhost:8080/FileAzure/Data/Image/%s/profile/%s", getUserId, filename)
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// Update image profile, replace the string
+func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Read the binary data from the request body
+	var imageData updateProfileImageData
+	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	getUserId, errTokenValidate := validation.ValidateTokenGetUuid(imageData.Token)
+
+	if errTokenValidate != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	sessionValidation, errSessionValidate := session.CheckSessionInside(getUserId)
+
+	if errSessionValidate != nil {
+		http.Error(w, errSessionValidate.Error(), http.StatusForbidden)
+		return
+	}
+
+	if !sessionValidation {
+		http.Error(w, "Session Expired", http.StatusForbidden)
+		return
+	}
+
+	// Func Convert from byte to image and return string.
+	GetNewImageUrl, errGetImageUrl := models.ConvertByteToImgString(imageData.Data, getUserId)
+
+	if errGetImageUrl != nil {
+		http.Error(w, errGetImageUrl.Error(), http.StatusNotAcceptable)
+		return
+	}
+
+	UpdateUsersProfileImage, errUpdateProfileImage := models.UpdateUserProfileImageBool(getUserId, GetNewImageUrl, imageData.OldImageUrl)
+
+	if errUpdateProfileImage != nil {
+		http.Error(w, errUpdateProfileImage.Error(), http.StatusNotAcceptable)
+		return
+	}
+
+	if !UpdateUsersProfileImage {
+		http.Error(w, "An error occured when updating users profile image", http.StatusNotAcceptable)
+		return
+	}
+
+	// Send back the response to user with file name
+	var response responseUserProfile
+	response.Status = http.StatusOK
+	response.Message = "Success Update Image"
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// Delete image profile, replace with empty string
+func DeleteImageProfile(w http.ResponseWriter, r *http.Request){
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Read the binary data from the request body
+	var imageData deleteProfileImageData
+	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	getUserId, errTokenValidate := validation.ValidateTokenGetUuid(imageData.Token)
+
+	if errTokenValidate != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	sessionValidation, errSessionValidate := session.CheckSessionInside(getUserId)
+
+	if errSessionValidate != nil {
+		http.Error(w, errSessionValidate.Error(), http.StatusForbidden)
+		return
+	}
+
+	if !sessionValidation {
+		http.Error(w, "Session Expired", http.StatusForbidden)
+		return
+	}
+
+	DeleteUserProfileImage, errDeleteProfileImage := models.DeleteUserImageProfileBool(getUserId ,imageData.OldImageUrl)
+
+	if errDeleteProfileImage != nil {
+		http.Error(w, errDeleteProfileImage.Error(), http.StatusNotAcceptable)
+		return
+	}
+
+	if !DeleteUserProfileImage {
+		http.Error(w, "An error occured when deleting users profile image", http.StatusNotAcceptable)
+		return
+	}
+
+	// Send back the response to user with file name
+	var response responseUserProfile
+	response.Status = http.StatusOK
+	response.Message = "Success Update Image"
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -151,6 +247,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	SessionValidation, errSessionCheck := session.CheckSessionInside(GetUserID)
@@ -162,6 +259,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	if !SessionValidation {
@@ -171,9 +269,10 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
-	insertDataProfile, errInsertUserProfile := models.InsertUserProfileToDatabase(userData, GetUserID)
+	insertDataProfile, errInsertUserProfile := models.UpdateUserProfileToDatabase(userData, GetUserID)
 
 	if errInsertUserProfile != nil {
 		var response responseUserProfile
@@ -198,8 +297,8 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	var token string
-	err := json.NewDecoder(r.Body).Decode(&token)
+	var TokenData tokenOnlyData
+	err := json.NewDecoder(r.Body).Decode(&TokenData)
 	if err != nil {
 		var response responseUserProfile
 		response.Status = http.StatusBadRequest
@@ -210,7 +309,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	getUserId, errGetUuid := validation.ValidateTokenGetUuid(token)
+	getUserId, errGetUuid := validation.ValidateTokenGetUuid(TokenData.Token)
 
 	if errGetUuid != nil {
 		var response responseUserProfile
@@ -219,6 +318,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	checkSession, errCheckSession := session.CheckSessionInside(getUserId)
@@ -230,6 +330,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	if checkSession {
@@ -244,6 +345,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(response)
+			return
 		}
 
 		var response responseUserProfileData
@@ -253,6 +355,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response)
+		return
 
 	} else {
 		var response responseUserProfile
@@ -261,5 +364,6 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 }

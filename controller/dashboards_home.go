@@ -4,19 +4,13 @@ import (
 	"encoding/json" // package untuk enkode dan mendekode json menjadi struct dan sebaliknya
 	"log"
 	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
-
 	// digunakan untuk mendapatkan parameter dari router
-
-	_ "github.com/lib/pq" // postgres golang driver
-
 	"AzureWS/models" //models package dimana User didefinisikan
 	"AzureWS/session"
 	"AzureWS/validation"
+
+	_ "github.com/lib/pq" // postgres golang driver
 )
-
-/*
-
- */
 
 type responseDashboards struct {
 	ID      int64  `json:"id,omitempty"`
@@ -82,6 +76,7 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	if !SessionValidation {
@@ -91,6 +86,7 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	datas, err := models.GetDashboardsData(userId)
@@ -147,7 +143,6 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(response)
-
 		return
 	}
 
@@ -160,6 +155,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	if !SessionValidation {
@@ -169,6 +165,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	boolResult, err := models.UpdateDashboardsData(userId, modelUpdate.Mode)
@@ -182,7 +179,6 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(response)
-
 		return
 	}
 
@@ -194,6 +190,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		// Send the response
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response)
+		return
 	} else {
 		var response responseDashboards
 		response.Status = http.StatusNotAcceptable
@@ -202,5 +199,6 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		// Send the response
 		w.WriteHeader(http.StatusNotAcceptable)
 		json.NewEncoder(w).Encode(response)
+		return
 	}
 }
