@@ -217,10 +217,10 @@ This will delete user profile image from DB and Local Dir
 | Parameter | Type     | Description                       |
 | :-------- | :------- | :-------------------------------- |
 | `userId`      | `string` | **Required**. Will generated after token Aunth|
-| `nickname`      | `string` | **Required**. To save account nickname|
-| `age`      | `string` | **Required**. To save account age |
-| `gender`      | `string` | **Required**. To save account gender|
-| `imageUrl`      | `string` | **Required**. To save account Image Url|
+| `nickname`      | `string` | **Not Required**. To save account nickname|
+| `age`      | `string` | **Not Required**. To save account age |
+| `gender`      | `string` | **Not Required**. To save account gender|
+| `imageUrl`      | `string` | **Not Required**. To save account Image Url|
 | `token`      | `string` | **Required**. To Aunth and get UserId|
 
 #### UpdateProfileData(UserId, Nickname, Age, Gender, ImageUrl, Token)
