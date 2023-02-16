@@ -14,8 +14,8 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/users", controller.GetAllUsr).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/user/{id}", controller.GetSnglUsr).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/add_user", controller.InsrtNewUser).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/user/{id}", controller.UpdtUserPsswd).Methods("PUT", "OPTIONS")
-	router.HandleFunc("/api/user/{id}", controller.DltUsr).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/api/user", controller.UpdtUserPsswd).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/api/user", controller.DltUsr).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/login", controller.LoginUser).Methods("GET", "OPTIONS")
 
 	// Dashboards data using token
