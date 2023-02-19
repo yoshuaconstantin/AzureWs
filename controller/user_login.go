@@ -6,12 +6,15 @@ import (
 	"log"
 	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
 	"strconv"  // package yang digunakan untuk mengubah string menjadi tipe int
+
+	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
+	_ "github.com/lib/pq"    // postgres golang driver
+
+	jwttoken "AzureWS/JWTTOKEN"
 	"AzureWS/models" //models package dimana User didefinisikan
 	"AzureWS/session"
 	"AzureWS/validation"
 
-	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
-	_ "github.com/lib/pq"    // postgres golang driver
 )
 
 /*
@@ -21,6 +24,12 @@ import (
 type responseUserLogin struct {
 	Message string `json:"message,omitempty"`
 	Status  int    `json:"status,omitempty"`
+}
+
+type responseUserLoginWithJWT struct {
+	Message string `json:"message,omitempty"`
+	Status  int    `json:"status,omitempty"`
+	JwtToken string `json:"jtwToken,omitempty"`
 }
 
 type ResponseUserLogin struct {
@@ -71,7 +80,7 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// panggil modelsnya lalu insert User
-	insertID, errInsert := models.AddUser(user)
+	InsertAndGetJwt, errInsert := models.AddUser(user)
 
 	if errInsert != nil {
 		var response ResponseAllError
@@ -83,7 +92,7 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	} else {
-		if insertID == 0 {
+		if InsertAndGetJwt == "" {
 			var response ResponseAllError
 			response.Status = http.StatusConflict
 			response.Message = "Username already registered"
@@ -93,9 +102,10 @@ func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(response)
 			return
 		} else {
-			var response responseUserLogin
+			var response responseUserLoginWithJWT
 			response.Status = http.StatusOK
 			response.Message = "Data user baru telah di tambahkan"
+			response.JwtToken = InsertAndGetJwt
 
 			// kirim response
 			w.WriteHeader(http.StatusOK)
@@ -143,6 +153,19 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		var response ResponseAllError
 		response.Status = http.StatusBadRequest
 		response.Message = "Invalid request body"
+
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		// If the authorization header is empty, return an error
+		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = "Missing authorization header"
 
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(response)
@@ -199,6 +222,28 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 					json.NewEncoder(w).Encode(response)
 					return
 				}
+
+				CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(GetUserID)
+
+				if erroCheckJWt != nil {
+					var response responseUserProfile
+					response.Status = http.StatusUnauthorized
+					response.Message = erroCheckJWt.Error()
+			
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(response)
+					return
+				}
+
+				if !CheckJwtTokenValidation {
+					var response responseUserProfile
+					response.Status = http.StatusUnauthorized
+					response.Message = "Unauthorized user"
+			
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(response)
+					return
+				} 
 
 				checkLoginSession, errAddSession := session.CheckSessionLogin(GetUserID)
 
@@ -380,7 +425,6 @@ func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(res)
-	
 }
 
 // Delete User func
@@ -459,5 +503,90 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+}
+
+// Logout User func
+func LgoutUsr (w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Context-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	var tokenModel TokenData
+
+	err := json.NewDecoder(r.Body).Decode(&tokenModel)
+
+	if err != nil {
+		res := responseUserLogin{
+			Message: "Cannot get request body",
+			Status:  http.StatusBadRequest,
+		}
+
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	userId, errGetUuid := validation.ValidateTokenGetUuid(tokenModel.Token)
 	
+	if errGetUuid != nil {
+		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
+
+		var response responseUserProfile
+		response.Status = http.StatusInternalServerError
+		response.Message = "Error retrieving UserId"
+
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
+
+	if errSessionCheck != nil {
+		var response responseUserProfile
+		response.Status = http.StatusForbidden
+		response.Message = errSessionCheck.Error()
+
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if !SessionValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Session Expired"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	logoutUser, errLogout := models.LogoutUser(userId)
+
+	if errLogout != nil {
+		var response responseUserProfile
+		response.Status = http.StatusInternalServerError
+		response.Message = errLogout.Error()
+
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if !logoutUser {
+		var response responseUserProfile
+		response.Status = http.StatusInternalServerError
+		response.Message = "Error when trying to logout"
+
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	var response responseUserLogin
+	response.Message = "Logout Succes"
+	response.Status = http.StatusOK
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }

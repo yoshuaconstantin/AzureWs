@@ -46,7 +46,7 @@ func CheckSessionLogin(userId string) (bool, error) {
 	if isExpired.Valid {
 
 		// Add Duration of expired when login and session not expired
-		AddExpired := `UPDATE user_login SET expired = $1, WHERE user_id = $2`
+		AddExpired := `UPDATE user_login SET expired = $1, WHERE user_id = $2 AND is_active = 'true'`
 
 		_, err := db.Exec(AddExpired, expiryStr, userId)
 
@@ -69,7 +69,7 @@ func CheckSessionInside(userId string) (bool, error) {
 	defer db.Close()
 
 	// Create a SQL query to retrieve the token based on the username and password.
-	sqlStatement := `SELECT expired FROM user_session WHERE user_id = $1`
+	sqlStatement := `SELECT expired FROM user_session WHERE user_id = $1 AND is_active = 'true'`
 
 	// Execute the SQL statement.
 	var isExpired sql.NullString

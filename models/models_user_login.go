@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"AzureWS/config"
-	"AzureWS/session"
-	"AzureWS/validation"
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq" // postgres golang driver
+
+	"AzureWS/config"
+	"AzureWS/session"
+	"AzureWS/validation"
+	"AzureWS/JWTTOKEN"
+
 )
 
 // jika return datanya ada yg null, silahkan pake NullString, contohnya dibawah
@@ -25,7 +28,7 @@ type User struct {
 	UserId   *string `json:"user_id,omitempty"`
 }
 
-func AddUser(user User) (int64, error) {
+func AddUser(user User) (string, error) {
 
 	db := config.CreateConnection()
 
@@ -37,7 +40,7 @@ func AddUser(user User) (int64, error) {
 
 	if errUsername != nil {
 		fmt.Printf("\nCREATE USER - Masuk kedalam error\n")
-		return 0, errUsername
+		return "", errUsername
 	}
 
 	//if Validation Username return true (means not having same username)
@@ -77,10 +80,16 @@ func AddUser(user User) (int64, error) {
 		createNewSession, errCreateNewSession := session.CreateNewSession(fixedUserId)
 
 		if errCreateNewSession != nil {
-			return 0, errCreateNewSession
+			return "", errCreateNewSession
 		}
 
 		if createNewSession {
+
+			GenereateJWTToken, erroGenerateJwt := jwttoken.GenerateToken(fixedUserId)
+
+			if erroGenerateJwt != nil {
+				return "", erroGenerateJwt
+			}
 
 			err := db.QueryRow(sqlStatement, fixedUserId, user.Username, hashedPassword, tokenGenerated).Scan(&id)
 
@@ -94,32 +103,32 @@ func AddUser(user User) (int64, error) {
 			initDashboards, error := InitDashboardsDataSet(fixedUserId)
 
 			if error != nil {
-				return 0, error
+				return "", error
 			}
 
 			if !initDashboards {
-				return 0, fmt.Errorf("%s", "\nCREATE USER - Failed to insert Init Dashboards Data\n")
-			} 
+				return "", fmt.Errorf("%s", "\nCREATE USER - Failed to insert Init Dashboards Data\n")
+			}
 
 			//Insert InitProfile
 			InitProfileData, errInitProfileData := InitUserProfileToDatabase(fixedUserId)
 
 			if errInitProfileData != nil {
-				return 0, errInitProfileData
+				return "", errInitProfileData
 			}
 
 			if !InitProfileData {
-				return 0, fmt.Errorf("%s", "\nINIT DATA PROFILE - Failed to insert Init Profile Data\n")
+				return "", fmt.Errorf("%s", "\nINIT DATA PROFILE - Failed to insert Init Profile Data\n")
 			}
 
-			return 1, nil
+			return GenereateJWTToken, nil
 
 		} else {
-			return 0, fmt.Errorf("%s", "\nCREATE SESSION - Failed to create new session\n")
+			return "", fmt.Errorf("%s", "\nCREATE SESSION - Failed to create new session\n")
 		}
 
 	} else {
-		return 0, errUsername
+		return "", errUsername
 	}
 }
 
@@ -247,4 +256,22 @@ func RemoveUser(userId string) (string, error) {
 	fmt.Printf("Total data yang terhapus %v", rowsAffected)
 
 	return "DELETE USER - Operation succes", nil
+}
+
+// Logout user and delete the session
+func LogoutUser(userId string) (bool, error) {
+	db := config.CreateConnection()
+
+	defer db.Close()
+
+	sqlStatement := `UPDATE user_login SET session_id = '', is_active = 'false' WHERE user_id = $1`
+
+	_, err := db.Exec(sqlStatement, userId)
+
+	if err != nil {
+		log.Fatalf("\nLOGOUT USER - Cannot execute command : %v\n", err)
+		return false, err
+	}
+
+	return true, nil
 }

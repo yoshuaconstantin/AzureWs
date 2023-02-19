@@ -19,12 +19,6 @@ type responseUserProfileData struct {
 	Data    []models.GetUserProfileData `json:"data,omitempty"`
 }
 
-type responseUserProfileUploadImage struct {
-	Message  string `json:"message,omitempty"`
-	Status   int    `json:"status,omitempty"`
-	ImageUrl string `json:"image_url,omitempty"`
-}
-
 type uploadImageData struct {
 	Token string `json:"token"`
 	Data []byte `json:"data"`
