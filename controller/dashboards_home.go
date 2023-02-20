@@ -1,17 +1,15 @@
 package controller
 
 import (
-	"encoding/json" // package untuk enkode dan mendekode json menjadi struct dan sebaliknya
+	"encoding/json"
 	"log"
-	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
+	"net/http"
 	"strings"
-
-	// digunakan untuk mendapatkan parameter dari router
 
 	_ "github.com/lib/pq" // postgres golang driver
 
 	jwttoken "AzureWS/JWTTOKEN"
-	"AzureWS/models" //models package dimana User didefinisikan
+	"AzureWS/models"
 	"AzureWS/session"
 	"AzureWS/validation"
 )

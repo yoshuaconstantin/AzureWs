@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/lib/pq" // postgres golang driver
+	_ "github.com/lib/pq" 
 
 	"AzureWS/config"
 

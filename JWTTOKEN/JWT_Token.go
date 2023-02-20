@@ -27,6 +27,7 @@ the func call should be like this
 
 */
 
+// Generate JWT with secret key and userId
 func GenerateToken(userId string) (string, error) {
 	claims := &Claims{
 		UserId: userId,
@@ -38,6 +39,7 @@ func GenerateToken(userId string) (string, error) {
 	return token.SignedString([]byte("testingkey"))
 }
 
+// Verify JWT using token string from header authorization bearer
 func VerifyToken(tokenString string) (bool, error) {
 	// Generate a random secret key
 	secretKey := []byte("testingkey")
@@ -63,4 +65,25 @@ func VerifyToken(tokenString string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// Refresh JWT and return the latest token
+func RefreshToken(tokenString, userId string) (string, error){
+	verifyToken, errVerify := VerifyToken(tokenString)
+
+	if errVerify != nil {
+		return "", errVerify
+	}
+
+	if !verifyToken {
+		return "", fmt.Errorf("%s","Unauthorized User")
+	}
+
+	generateNewToken, errGenerateToken := GenerateToken(userId)
+
+	if errGenerateToken != nil {
+		return "", errGenerateToken
+	}
+
+	return generateNewToken, nil
 }
