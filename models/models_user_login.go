@@ -226,7 +226,6 @@ func UpdatePasswordUser(userId, password string) (int64, error) {
 	fmt.Printf("\nUpdate Password - State succes\n")
 
 	return rowsAffected, nil
-
 }
 
 func RemoveUser(userId string) (string, error) {

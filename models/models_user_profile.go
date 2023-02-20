@@ -1,7 +1,6 @@
 package models
 
 import (
-	"AzureWS/config"
 	"bytes"
 	"fmt"
 	"image"
@@ -16,15 +15,16 @@ import (
 	"time"
 
 	_ "github.com/lib/pq" // postgres golang driver
+
+	"AzureWS/config"
+
 )
 
 type UserProfileData struct {
-	UserId   *string `json:"user_id,omitempty"`
 	Nickname *string `json:"nickname,omitempty"`
 	Age      *string `json:"age,omitempty"`
 	Gender   *string `json:"gender,omitempty"`
 	ImageUrl *string `json:"image_url,omitempty"`
-	Token    *string `json:"token"`
 }
 
 type GetUserProfileData struct {
@@ -34,6 +34,7 @@ type GetUserProfileData struct {
 	ImageUrl     *string `json:"image_url,omitempty"`
 	CreatedSince *string `json:"created_since,omitempty"`
 }
+
 
 // Init insert user profile with user id and the rest string null
 func InitUserProfileToDatabase(userId string) (bool, error) {
@@ -64,9 +65,12 @@ func UpdateUserProfileToDatabase(userData UserProfileData, userId string) (strin
 
 	defer db.Close()
 
+	fmt.Println(userData)
+	fmt.Println(userId)
+
 	sqlStatement := `UPDATE user_profile SET nickname = $1, age = $2, gender = $3, image_url = $4 WHERE user_id = $5`
 
-	_, err := db.Exec(sqlStatement, userData.Nickname, userData.Age, userData.Gender, userData.ImageUrl, userData.UserId)
+	_, err := db.Exec(sqlStatement, userData.Nickname, userData.Age, userData.Gender, userData.ImageUrl, userId)
 
 	if err != nil {
 		log.Fatalf("\nUPDATE USER PROFILE - Cannot execute command : %v\n", err)
@@ -255,6 +259,12 @@ func DeleteUserImageProfileBool(userId, oldImageUrl string) (bool, error) {
 	return true, nil
 }
 
+/*
+Note : You should store the file path using env variable to secure the path
+Example *export SECRET_PATH=/path/to/your/secret/path*
+
+then use this to call the path : filePath := os.Getenv("SECRET_FILE_PATH")
+*/
 // Remove the users old image
 func DeleteUsersFileImage(oldImageUrl string) (bool, error) {
 

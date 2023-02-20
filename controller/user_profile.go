@@ -1,11 +1,16 @@
 package controller
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
+
+	jwttoken "AzureWS/JWTTOKEN"
 	"AzureWS/models"
 	"AzureWS/session"
 	"AzureWS/validation"
-	"encoding/json"
-	"net/http"
+
 )
 
 type responseUserProfile struct {
@@ -21,22 +26,32 @@ type responseUserProfileData struct {
 
 type uploadImageData struct {
 	Token string `json:"token"`
-	Data []byte `json:"data"`
+	Data  []byte `json:"data"`
 }
 
 type updateProfileImageData struct {
-	Token		string `json:"token"`
+	Token       string `json:"token"`
 	OldImageUrl string `json:"oldImgUrl"`
-	Data		[]byte `json:"data"`
+	Data        []byte `json:"data"`
 }
 
 type deleteProfileImageData struct {
-	Token		string `json:"token"`
+	Token       string `json:"token"`
 	OldImageUrl string `json:"oldImgUrl"`
 }
 
 type tokenOnlyData struct {
 	Token string `json:"token"`
+}
+
+type InsertProfileData struct {
+	Token string `json:"token"`
+	Data  []struct {
+		Nickname string `json:"nickname,omitempty"`
+		Age      string `json:"age,omitempty"`
+		Gender   string `json:"gender,omitempty"`
+		ImageUrl string `json:"image_url,omitempty"`
+	} `json:"data"`
 }
 
 /*
@@ -54,6 +69,19 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		// If the authorization header is empty, return an error
+		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = "Missing authorization header"
+
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
 	// Read the binary data from the request body
 	var imageData uploadImageData
 	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
@@ -65,6 +93,29 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 
 	if errTokenValidate != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
+
+	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
+
+	if erroCheckJWt != nil {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = erroCheckJWt.Error()
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if !CheckJwtTokenValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Unauthorized user"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -107,6 +158,19 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		// If the authorization header is empty, return an error
+		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = "Missing authorization header"
+
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
 	// Read the binary data from the request body
 	var imageData updateProfileImageData
 	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
@@ -118,6 +182,30 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 
 	if errTokenValidate != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
+
+	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
+
+	if erroCheckJWt != nil {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = erroCheckJWt.Error()
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if !CheckJwtTokenValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Unauthorized user"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -163,9 +251,22 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete image profile, replace with empty string
-func DeleteImageProfile(w http.ResponseWriter, r *http.Request){
+func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		// If the authorization header is empty, return an error
+		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = "Missing authorization header"
+
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
 
 	// Read the binary data from the request body
 	var imageData deleteProfileImageData
@@ -178,6 +279,29 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request){
 
 	if errTokenValidate != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
+
+	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
+
+	if erroCheckJWt != nil {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = erroCheckJWt.Error()
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if !CheckJwtTokenValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Unauthorized user"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -193,7 +317,7 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	DeleteUserProfileImage, errDeleteProfileImage := models.DeleteUserImageProfileBool(getUserId ,imageData.OldImageUrl)
+	DeleteUserProfileImage, errDeleteProfileImage := models.DeleteUserImageProfileBool(getUserId, imageData.OldImageUrl)
 
 	if errDeleteProfileImage != nil {
 		http.Error(w, errDeleteProfileImage.Error(), http.StatusNotAcceptable)
@@ -219,7 +343,20 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	var userData models.UserProfileData
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		// If the authorization header is empty, return an error
+		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = "Missing authorization header"
+
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	var userData InsertProfileData
 
 	err := json.NewDecoder(r.Body).Decode(&userData)
 	if err != nil {
@@ -231,13 +368,46 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
+	fmt.Println(userData)
+	data := userData.Data[0]
 
-	GetUserID, errGetUuid := validation.ValidateTokenGetUuid(*userData.Token)
+	// Create a UserProfileData instance using the data from the InsertProfileData struct
+	userProfileData := models.UserProfileData{
+		Nickname: &data.Nickname,
+		Age:      &data.Age,
+		Gender:   &data.Gender,
+		ImageUrl: &data.ImageUrl,
+	}
+
+	GetUserID, errGetUuid := validation.ValidateTokenGetUuid(userData.Token)
 
 	if errGetUuid != nil {
 		var response responseUserProfile
 		response.Status = http.StatusUnauthorized
 		response.Message = errGetUuid.Error()
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
+
+	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
+
+	if erroCheckJWt != nil {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = erroCheckJWt.Error()
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if !CheckJwtTokenValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Unauthorized user"
 
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(response)
@@ -266,7 +436,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	insertDataProfile, errInsertUserProfile := models.UpdateUserProfileToDatabase(userData, GetUserID)
+	insertDataProfile, errInsertUserProfile := models.UpdateUserProfileToDatabase(userProfileData, GetUserID)
 
 	if errInsertUserProfile != nil {
 		var response responseUserProfile
@@ -291,6 +461,19 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		// If the authorization header is empty, return an error
+		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = "Missing authorization header"
+
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
 	var TokenData tokenOnlyData
 	err := json.NewDecoder(r.Body).Decode(&TokenData)
 	if err != nil {
@@ -314,7 +497,29 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
 
+	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
+
+	if erroCheckJWt != nil {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = erroCheckJWt.Error()
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if !CheckJwtTokenValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Unauthorized user"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
 	checkSession, errCheckSession := session.CheckSessionInside(getUserId)
 
 	if errCheckSession != nil {

@@ -4,12 +4,16 @@ import (
 	"encoding/json" // package untuk enkode dan mendekode json menjadi struct dan sebaliknya
 	"log"
 	"net/http" // digunakan untuk mengakses objek permintaan dan respons dari api
+	"strings"
+
 	// digunakan untuk mendapatkan parameter dari router
+
+	_ "github.com/lib/pq" // postgres golang driver
+
+	jwttoken "AzureWS/JWTTOKEN"
 	"AzureWS/models" //models package dimana User didefinisikan
 	"AzureWS/session"
 	"AzureWS/validation"
-
-	_ "github.com/lib/pq" // postgres golang driver
 )
 
 type responseDashboards struct {
@@ -38,6 +42,19 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		// If the authorization header is empty, return an error
+		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = "Missing authorization header"
+
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
 	var token GetTokenUser
 	err := json.NewDecoder(r.Body).Decode(&token)
 	if err != nil {
@@ -64,6 +81,29 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(response)
 
+		return
+	}
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
+
+	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
+
+	if erroCheckJWt != nil {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = erroCheckJWt.Error()
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if !CheckJwtTokenValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Unauthorized user"
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -120,6 +160,19 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		// If the authorization header is empty, return an error
+		var response ResponseAllError
+		response.Status = http.StatusBadRequest
+		response.Message = "Missing authorization header"
+
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
 	var modelUpdate UpdateDashboardsData
 	err := json.NewDecoder(r.Body).Decode(&modelUpdate)
 	if err != nil {
@@ -142,6 +195,30 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		response.Message = "Error retrieving UserId"
 
 		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
+
+	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
+
+	if erroCheckJWt != nil {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = erroCheckJWt.Error()
+
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if !CheckJwtTokenValidation {
+		var response responseUserProfile
+		response.Status = http.StatusUnauthorized
+		response.Message = "Unauthorized user"
+
+		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(response)
 		return
 	}
