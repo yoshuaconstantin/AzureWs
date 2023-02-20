@@ -74,6 +74,8 @@ If you have any feedback, please reach out to us at joshuaconstantine.k@gmail.co
 
 ## API Reference [WIP]
 
+### All Request need JWT Token as Header
+
 #### Create New Account
 
 ```http
@@ -216,12 +218,13 @@ This will delete user profile image from DB and Local Dir
 
 | Parameter | Type     | Description                       |
 | :-------- | :------- | :-------------------------------- |
-| `userId`      | `string` | **Required**. Will generated after token Aunth|
-| `nickname`      | `string` | **Not Required**. To save account nickname|
-| `age`      | `string` | **Not Required**. To save account age |
-| `gender`      | `string` | **Not Required**. To save account gender|
-| `imageUrl`      | `string` | **Not Required**. To save account Image Url|
 | `token`      | `string` | **Required**. To Aunth and get UserId|
+| `data`      | `array` | **Required**. Array with needed value below|
+| `data [nickname]`      | `string` | **Not Required**. To save account nickname|
+| `data [age]`      | `string` | **Not Required**. To save account age |
+| `data [gender]`      | `string` | **Not Required**. To save account gender|
+| `data [imageUrl]`      | `string` | **Not Required**. To save account Image Url|
+
 
 #### UpdateProfileData(UserId, Nickname, Age, Gender, ImageUrl, Token)
 
