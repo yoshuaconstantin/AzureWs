@@ -1,6 +1,11 @@
-package models
+package module
 
 import (
+	jwttoken "AzureWS/JWTTOKEN"
+	"AzureWS/config"
+	"AzureWS/schemas/models"
+	"AzureWS/session"
+	"AzureWS/validation"
 	"crypto/md5"
 	"database/sql"
 	"encoding/hex"
@@ -10,25 +15,12 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq" // postgres golang driver
-
-	"AzureWS/config"
-	"AzureWS/session"
-	"AzureWS/validation"
-	"AzureWS/JWTTOKEN"
-
 )
 
 // jika return datanya ada yg null, silahkan pake NullString, contohnya dibawah
 // Var       config.NullString `json:"var"`
 
-type User struct {
-	ID       *int64  `json:"id,omitempty"`
-	Username string  `json:"username"`
-	Password string  `json:"password"`
-	UserId   *string `json:"user_id,omitempty"`
-}
-
-func AddUser(user User) (string, error) {
+func AddUserToDB(user models.UserModel) (string, error) {
 
 	db := config.CreateConnection()
 
@@ -100,7 +92,7 @@ func AddUser(user User) (string, error) {
 			fmt.Printf("\nCREATE USER - Insert data single record into user login %v\n", id)
 
 			//Insert InitDashboards
-			initDashboards, error := InitDashboardsDataSet(fixedUserId)
+			initDashboards, error := InitDashboardsDataSetToDB(fixedUserId)
 
 			if error != nil {
 				return "", error
@@ -132,13 +124,13 @@ func AddUser(user User) (string, error) {
 	}
 }
 
-func GetAllUser() ([]User, error) {
+func GetAllUser() ([]models.UserModel, error) {
 
 	db := config.CreateConnection()
 
 	defer db.Close()
 
-	var users []User
+	var users []models.UserModel
 
 	sqlStatement := `SELECT * FROM user_login`
 
@@ -154,7 +146,7 @@ func GetAllUser() ([]User, error) {
 
 	// kita iterasi mengambil datanya
 	for rows.Next() {
-		var user User
+		var user models.UserModel
 
 		// kita ambil datanya dan unmarshal ke structnya
 		err = rows.Scan(&user.ID, &user.Username, &user.Password, &user.UserId)
@@ -172,14 +164,14 @@ func GetAllUser() ([]User, error) {
 	return users, err
 }
 
-func GetSingleUser(id int64) (User, error) {
+func GetSingleUser(id int64) (models.UserModel, error) {
 	// mengkoneksikan ke db postgres
 	db := config.CreateConnection()
 
 	// kita tutup koneksinya di akhir proses
 	defer db.Close()
 
-	var user User
+	var user models.UserModel
 
 	// buat sql query
 	sqlStatement := `SELECT * FROM user_login WHERE id=$1`
@@ -203,7 +195,7 @@ func GetSingleUser(id int64) (User, error) {
 }
 
 // update user in the DB
-func UpdatePasswordUser(userId, password string) (int64, error) {
+func UpdatePasswordUserFromDB(userId, password string) (int64, error) {
 
 	db := config.CreateConnection()
 
@@ -228,31 +220,52 @@ func UpdatePasswordUser(userId, password string) (int64, error) {
 	return rowsAffected, nil
 }
 
-func RemoveUser(userId string) (string, error) {
+/*
+Note : To Delete All row where userId in single line use function CASCADE in SQl
+Usage link *https://stackoverflow.com/questions/129265/cascade-delete-just-once*
+
+And implement with your own style
+*/
+func RemoveUserDB(userId string) (string, error) {
 
 	db := config.CreateConnection()
 
 	defer db.Close()
 
-	sqlStatement := `DELETE FROM user_login WHERE user_id=$2`
+	sqlStatementUsrLgn := `DELETE FROM user_login WHERE user_id=$1`
+	sqlStatementDshbrds := `DELETE FROM dashboards_data WHERE user_id=$1`
+	sqlStatementUsrFdbck := `DELETE FROM user_feedback WHERE user_id=$1`
+	sqlStatementUsrPrfl := `DELETE FROM user_profile WHERE user_id=$1`
 
 	// eksekusi sql statement
-	res, err := db.Exec(sqlStatement, userId)
+	_, errDelUsrLgn := db.Exec(sqlStatementUsrLgn, userId)
+	_, errDelDshbrds := db.Exec(sqlStatementDshbrds, userId)
+	_, errDelUsrFdbck := db.Exec(sqlStatementUsrFdbck, userId)
+	_, errDelUsrPrfl := db.Exec(sqlStatementUsrPrfl, userId)
 
-	if err != nil {
-		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", err)
+	if errDelUsrLgn != nil {
+		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", errDelUsrLgn)
 
-		return "", err
+		return "", errDelUsrLgn
 	}
 
-	// cek berapa jumlah data/row yang di hapus
-	rowsAffected, err := res.RowsAffected()
+	if errDelDshbrds != nil {
+		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", errDelDshbrds)
 
-	if err != nil {
-		log.Fatalf("tidak bisa mencari data. %v", err)
+		return "", errDelDshbrds
 	}
 
-	fmt.Printf("Total data yang terhapus %v", rowsAffected)
+	if errDelUsrFdbck != nil {
+		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", errDelUsrFdbck)
+
+		return "", errDelUsrFdbck
+	}
+
+	if errDelUsrPrfl != nil {
+		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", errDelUsrPrfl)
+
+		return "", errDelUsrPrfl
+	}
 
 	return "DELETE USER - Operation succes", nil
 }
@@ -263,7 +276,7 @@ func LogoutUser(userId string) (bool, error) {
 
 	defer db.Close()
 
-	sqlStatement := `UPDATE user_login SET session_id = '', is_active = 'false' WHERE user_id = $1`
+	sqlStatement := `UPDATE user_session SET session_id = '', is_active = 'false' WHERE user_id = $1`
 
 	_, err := db.Exec(sqlStatement, userId)
 

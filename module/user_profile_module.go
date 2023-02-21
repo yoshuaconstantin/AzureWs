@@ -1,6 +1,8 @@
-package models
+package module
 
 import (
+	"AzureWS/config"
+	"AzureWS/schemas/models"
 	"bytes"
 	"fmt"
 	"image"
@@ -14,27 +16,8 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/lib/pq" 
-
-	"AzureWS/config"
-
+	_ "github.com/lib/pq"
 )
-
-type UserProfileData struct {
-	Nickname *string `json:"nickname,omitempty"`
-	Age      *string `json:"age,omitempty"`
-	Gender   *string `json:"gender,omitempty"`
-	ImageUrl *string `json:"image_url,omitempty"`
-}
-
-type GetUserProfileData struct {
-	Nickname     *string `json:"nickname,omitempty"`
-	Age          *string `json:"age,omitempty"`
-	Gender       *string `json:"gender,omitempty"`
-	ImageUrl     *string `json:"image_url,omitempty"`
-	CreatedSince *string `json:"created_since,omitempty"`
-}
-
 
 // Init insert user profile with user id and the rest string null
 func InitUserProfileToDatabase(userId string) (bool, error) {
@@ -60,7 +43,7 @@ func InitUserProfileToDatabase(userId string) (bool, error) {
 }
 
 // Can be used to insert and update profile data
-func UpdateUserProfileToDatabase(userData UserProfileData, userId string) (string, error) {
+func UpdateUserProfileToDatabase(userData models.UserProfileDataModel, userId string) (string, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
@@ -89,12 +72,12 @@ Task : Create endpoint for Hit image with GET method and Json filePath
 Step : Hit GetUserProfileData -> return:model -> hit GetImageData (request: userId, filename)
 return:imgUrl -> user should use Image.Network (Flutter)
 */
-func GetUserProfileDataFromDatabase(userId string) ([]GetUserProfileData, error) {
+func GetUserProfileDataFromDatabase(userId string) ([]models.GetUserProfileDataModel, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
 
-	var profileData []GetUserProfileData
+	var profileData []models.GetUserProfileDataModel
 
 	sqlStatement := `SELECT nickname,age,gender,image_url,created_since FROM user_profile where user_id = $1`
 
@@ -107,7 +90,7 @@ func GetUserProfileDataFromDatabase(userId string) ([]GetUserProfileData, error)
 	defer rows.Close()
 
 	for rows.Next() {
-		var getUserProfileData GetUserProfileData
+		var getUserProfileData models.GetUserProfileDataModel
 
 		err = rows.Scan(&getUserProfileData.Nickname, &getUserProfileData.Age, &getUserProfileData.Gender, &getUserProfileData.ImageUrl, &getUserProfileData.CreatedSince)
 

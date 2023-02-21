@@ -6,11 +6,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"AzureWS/config"
 
 	_ "github.com/lib/pq"
 	//"golang.org/x/crypto/bcrypt"
-
-	"AzureWS/config"
 )
 
 // Validate users login to get token
@@ -182,4 +181,33 @@ func ValidatePasswordToEncrypt(password string) (string, error) {
 	passwordMd5String := hex.EncodeToString(passwordMd5[:])
 
 	return passwordMd5String, nil
+}
+
+// Validate UserId to get nickname from profile data
+func ValidateGetNickname(UserId string) (string, error){
+
+	db := config.CreateConnection()
+
+	// Close the connection at the end of the process.
+	defer db.Close()
+
+	// Create a SQL query to retrieve the token based on the username and password.
+	sqlStatement := `SELECT nickname FROM user_profile WHERE user_id = $1`
+
+	// Execute the SQL statement.
+	var nickname sql.NullString
+
+	err := db.QueryRow(sqlStatement, UserId).Scan(&nickname)
+
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("%s", "GET NICKNAME - Users not found")
+	}
+
+	if err != nil {
+		log.Fatalf("GET NICKANME - Error executing the SQL statement: %v", err)
+		return "", err
+	}
+
+	return nickname.String, nil
+
 }

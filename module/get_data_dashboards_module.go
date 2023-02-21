@@ -1,26 +1,17 @@
-package models
+package module
 
 import (
+	"AzureWS/config"
+	"AzureWS/schemas/models"
 	"database/sql"
 	"fmt"
 	"log"
 	"strconv"
 
 	_ "github.com/lib/pq" // postgres golang driver
-
-	"AzureWS/config"
 )
 
-type DashboardsData struct {
-	ProfileCount *int    `json:"profileCount,omitempty"`
-	ProfileRank  *string `json:"profileRank,omitempty"`
-	ThermalCount *int    `json:"thermalCount,omitempty"`
-	ThermalRank  *string `json:"thermalRank,omitempty"`
-	DozeCount    *int    `json:"dozeCount,omitempty"`
-	DozeRank     *string `json:"dozeRank,omitempty"`
-}
-
-func InitDashboardsDataSet(userId string) (bool, error) {
+func InitDashboardsDataSetToDB(userId string) (bool, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
@@ -41,13 +32,13 @@ func InitDashboardsDataSet(userId string) (bool, error) {
 	return true, nil
 }
 
-func GetDashboardsData(userId string) ([]DashboardsData, error) {
+func GetDashboardsDataFromDB(userId string) ([]models.DashboardsDataModel, error) {
 
 	db := config.CreateConnection()
 
 	defer db.Close()
 
-	var dashboardsData []DashboardsData
+	var dashboardsData []models.DashboardsDataModel
 
 	sqlStatement := `SELECT profilecount, profilerank, thermalcount, thermalrank, dozecount, dozerank FROM dashboards_data WHERE user_id = $1`
 
@@ -60,7 +51,7 @@ func GetDashboardsData(userId string) ([]DashboardsData, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var dashboardData DashboardsData
+		var dashboardData models.DashboardsDataModel
 
 		err = rows.Scan(&dashboardData.ProfileCount, &dashboardData.ProfileRank, &dashboardData.ThermalCount, &dashboardData.ThermalRank, &dashboardData.DozeCount, &dashboardData.DozeRank)
 
@@ -77,7 +68,7 @@ func GetDashboardsData(userId string) ([]DashboardsData, error) {
 
 }
 
-func UpdateDashboardsData(userId string, mode string) (bool, error) {
+func UpdateDashboardsDataFromDB(userId string, mode string) (bool, error) {
 
 	db := config.CreateConnection()
 
@@ -171,5 +162,4 @@ func UpdateDashboardsData(userId string, mode string) (bool, error) {
 	} else {
 		return false, err
 	}
-
 }

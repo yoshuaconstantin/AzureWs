@@ -1,58 +1,18 @@
 package controller
 
 import (
+	jwttoken "AzureWS/JWTTOKEN"
+	"AzureWS/module"
+	"AzureWS/schemas/models"
+	"AzureWS/schemas/request"
+	"AzureWS/schemas/response"
+	"AzureWS/session"
+	"AzureWS/validation"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
-
-	jwttoken "AzureWS/JWTTOKEN"
-	"AzureWS/models"
-	"AzureWS/session"
-	"AzureWS/validation"
-
 )
-
-type responseUserProfile struct {
-	Message string `json:"message,omitempty"`
-	Status  int    `json:"status,omitempty"`
-}
-
-type responseUserProfileData struct {
-	Message string                      `json:"message,omitempty"`
-	Status  int                         `json:"status,omitempty"`
-	Data    []models.GetUserProfileData `json:"data,omitempty"`
-}
-
-type uploadImageData struct {
-	Token string `json:"token"`
-	Data  []byte `json:"data"`
-}
-
-type updateProfileImageData struct {
-	Token       string `json:"token"`
-	OldImageUrl string `json:"oldImgUrl"`
-	Data        []byte `json:"data"`
-}
-
-type deleteProfileImageData struct {
-	Token       string `json:"token"`
-	OldImageUrl string `json:"oldImgUrl"`
-}
-
-type tokenOnlyData struct {
-	Token string `json:"token"`
-}
-
-type InsertProfileData struct {
-	Token string `json:"token"`
-	Data  []struct {
-		Nickname string `json:"nickname,omitempty"`
-		Age      string `json:"age,omitempty"`
-		Gender   string `json:"gender,omitempty"`
-		ImageUrl string `json:"image_url,omitempty"`
-	} `json:"data"`
-}
 
 /*
 <Documentation>
@@ -73,7 +33,7 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 
 	if authHeader == "" {
 		// If the authorization header is empty, return an error
-		var response ResponseAllError
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Missing authorization header"
 
@@ -83,7 +43,7 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Read the binary data from the request body
-	var imageData uploadImageData
+	var imageData request.RequestUploadImageData
 	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -100,7 +60,7 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
 
 	if erroCheckJWt != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = erroCheckJWt.Error()
 
@@ -110,7 +70,7 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !CheckJwtTokenValidation {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Unauthorized user"
 
@@ -132,7 +92,7 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Func Convert from byte to image and return string.
-	UploadImageToDB, errUploadImageToDB := models.UploadUserProfilePhotoBool(getUserId, imageData.Data)
+	UploadImageToDB, errUploadImageToDB := module.UploadUserProfilePhotoBool(getUserId, imageData.Data)
 
 	if errUploadImageToDB != nil {
 		http.Error(w, errUploadImageToDB.Error(), http.StatusNotAcceptable)
@@ -145,7 +105,7 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send back the response to user with file name
-	var response responseUserProfile
+	var response response.GeneralResponseNoData
 	response.Status = http.StatusOK
 	response.Message = "Success Upload Image"
 
@@ -162,7 +122,7 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 
 	if authHeader == "" {
 		// If the authorization header is empty, return an error
-		var response ResponseAllError
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Missing authorization header"
 
@@ -172,7 +132,7 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Read the binary data from the request body
-	var imageData updateProfileImageData
+	var imageData request.RequestUpdateProfileImageData
 	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -190,7 +150,7 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
 
 	if erroCheckJWt != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = erroCheckJWt.Error()
 
@@ -200,7 +160,7 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !CheckJwtTokenValidation {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Unauthorized user"
 
@@ -222,14 +182,14 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Func Convert from byte to image and return string.
-	GetNewImageUrl, errGetImageUrl := models.ConvertByteToImgString(imageData.Data, getUserId)
+	GetNewImageUrl, errGetImageUrl := module.ConvertByteToImgString(imageData.Data, getUserId)
 
 	if errGetImageUrl != nil {
 		http.Error(w, errGetImageUrl.Error(), http.StatusNotAcceptable)
 		return
 	}
 
-	UpdateUsersProfileImage, errUpdateProfileImage := models.UpdateUserProfileImageBool(getUserId, GetNewImageUrl, imageData.OldImageUrl)
+	UpdateUsersProfileImage, errUpdateProfileImage := module.UpdateUserProfileImageBool(getUserId, GetNewImageUrl, imageData.OldImageUrl)
 
 	if errUpdateProfileImage != nil {
 		http.Error(w, errUpdateProfileImage.Error(), http.StatusNotAcceptable)
@@ -242,7 +202,7 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send back the response to user with file name
-	var response responseUserProfile
+	var response response.GeneralResponseNoData
 	response.Status = http.StatusOK
 	response.Message = "Success Update Image"
 
@@ -259,7 +219,7 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 
 	if authHeader == "" {
 		// If the authorization header is empty, return an error
-		var response ResponseAllError
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Missing authorization header"
 
@@ -269,7 +229,7 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Read the binary data from the request body
-	var imageData deleteProfileImageData
+	var imageData request.RequestDeleteProfileImageData
 	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -286,7 +246,7 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
 
 	if erroCheckJWt != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = erroCheckJWt.Error()
 
@@ -296,7 +256,7 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !CheckJwtTokenValidation {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Unauthorized user"
 
@@ -317,7 +277,7 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	DeleteUserProfileImage, errDeleteProfileImage := models.DeleteUserImageProfileBool(getUserId, imageData.OldImageUrl)
+	DeleteUserProfileImage, errDeleteProfileImage := module.DeleteUserImageProfileBool(getUserId, imageData.OldImageUrl)
 
 	if errDeleteProfileImage != nil {
 		http.Error(w, errDeleteProfileImage.Error(), http.StatusNotAcceptable)
@@ -330,7 +290,7 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send back the response to user with file name
-	var response responseUserProfile
+	var response response.GeneralResponseNoData
 	response.Status = http.StatusOK
 	response.Message = "Success Update Image"
 
@@ -347,7 +307,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 
 	if authHeader == "" {
 		// If the authorization header is empty, return an error
-		var response ResponseAllError
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Missing authorization header"
 
@@ -356,11 +316,11 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userData InsertProfileData
+	var userData request.RequestInsertProfileData
 
 	err := json.NewDecoder(r.Body).Decode(&userData)
 	if err != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Invalid request body"
 
@@ -372,7 +332,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 	data := userData.Data[0]
 
 	// Create a UserProfileData instance using the data from the InsertProfileData struct
-	userProfileData := models.UserProfileData{
+	userProfileData := models.UserProfileDataModel{
 		Nickname: &data.Nickname,
 		Age:      &data.Age,
 		Gender:   &data.Gender,
@@ -382,7 +342,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 	GetUserID, errGetUuid := validation.ValidateTokenGetUuid(userData.Token)
 
 	if errGetUuid != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = errGetUuid.Error()
 
@@ -395,7 +355,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
 
 	if erroCheckJWt != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = erroCheckJWt.Error()
 
@@ -405,7 +365,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !CheckJwtTokenValidation {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Unauthorized user"
 
@@ -417,7 +377,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 	SessionValidation, errSessionCheck := session.CheckSessionInside(GetUserID)
 
 	if errSessionCheck != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusForbidden
 		response.Message = errSessionCheck.Error()
 
@@ -427,7 +387,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !SessionValidation {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Session Expired"
 
@@ -436,10 +396,10 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	insertDataProfile, errInsertUserProfile := models.UpdateUserProfileToDatabase(userProfileData, GetUserID)
+	insertDataProfile, errInsertUserProfile := module.UpdateUserProfileToDatabase(userProfileData, GetUserID)
 
 	if errInsertUserProfile != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusConflict
 		response.Message = errInsertUserProfile.Error()
 
@@ -448,7 +408,7 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var response responseUserProfile
+	var response response.GeneralResponseNoData
 	response.Status = http.StatusOK
 	response.Message = insertDataProfile
 
@@ -465,7 +425,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 
 	if authHeader == "" {
 		// If the authorization header is empty, return an error
-		var response ResponseAllError
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Missing authorization header"
 
@@ -474,10 +434,10 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var TokenData tokenOnlyData
+	var TokenData request.RequestTokenOnlyData
 	err := json.NewDecoder(r.Body).Decode(&TokenData)
 	if err != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Invalid request body"
 
@@ -489,7 +449,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	getUserId, errGetUuid := validation.ValidateTokenGetUuid(TokenData.Token)
 
 	if errGetUuid != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = errGetUuid.Error()
 
@@ -502,7 +462,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
 
 	if erroCheckJWt != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = erroCheckJWt.Error()
 
@@ -512,7 +472,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !CheckJwtTokenValidation {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Unauthorized user"
 
@@ -523,7 +483,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	checkSession, errCheckSession := session.CheckSessionInside(getUserId)
 
 	if errCheckSession != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusNotFound
 		response.Message = errCheckSession.Error()
 
@@ -533,12 +493,12 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if checkSession {
-		var dataModel []models.GetUserProfileData
+		var dataModel []models.GetUserProfileDataModel
 
-		dataModel, errGetDataProfile := models.GetUserProfileDataFromDatabase(getUserId)
+		dataModel, errGetDataProfile := module.GetUserProfileDataFromDatabase(getUserId)
 
 		if errGetDataProfile != nil {
-			var response responseUserProfile
+			var response response.GeneralResponseNoData
 			response.Status = http.StatusConflict
 			response.Message = errGetDataProfile.Error()
 
@@ -547,7 +507,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var response responseUserProfileData
+		var response response.ResponseGetDataUserProfile
 		response.Status = http.StatusOK
 		response.Message = "Get data success"
 		response.Data = dataModel
@@ -557,7 +517,7 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 		return
 
 	} else {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Session Expired"
 

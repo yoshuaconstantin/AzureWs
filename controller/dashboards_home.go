@@ -1,39 +1,19 @@
 package controller
 
 import (
+	jwttoken "AzureWS/JWTTOKEN"
+	"AzureWS/module"
+	"AzureWS/schemas/request"
+	"AzureWS/schemas/response"
+	"AzureWS/session"
+	"AzureWS/validation"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
 
-	_ "github.com/lib/pq" // postgres golang driver
-
-	jwttoken "AzureWS/JWTTOKEN"
-	"AzureWS/models"
-	"AzureWS/session"
-	"AzureWS/validation"
+	_ "github.com/lib/pq"
 )
-
-type responseDashboards struct {
-	ID      int64  `json:"id,omitempty"`
-	Message string `json:"message,omitempty"`
-	Status  int    `json:"status,omitempty"`
-}
-
-type ResponseDashboardsData struct {
-	Status  int                     `json:"status"`
-	Message string                  `json:"message"`
-	Data    []models.DashboardsData `json:"data"`
-}
-
-type GetTokenUser struct {
-	Token string `json:"token"`
-}
-
-type UpdateDashboardsData struct {
-	Token string `json:"token"`
-	Mode  string `json:"mode"`
-}
 
 // Get User Dashboards Data based on current user
 func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +24,7 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 
 	if authHeader == "" {
 		// If the authorization header is empty, return an error
-		var response ResponseAllError
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Missing authorization header"
 
@@ -53,10 +33,10 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var token GetTokenUser
+	var token request.RequestToken
 	err := json.NewDecoder(r.Body).Decode(&token)
 	if err != nil {
-		var response responseDashboards
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Invalid request body"
 
@@ -72,7 +52,7 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	if errGetUuid != nil {
 		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
 
-		var response responseDashboards
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusInternalServerError
 		response.Message = "Error retrieving UserId"
 
@@ -86,7 +66,7 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
 
 	if erroCheckJWt != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = erroCheckJWt.Error()
 
@@ -96,7 +76,7 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !CheckJwtTokenValidation {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Unauthorized user"
 
@@ -108,7 +88,7 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
 
 	if errSessionCheck != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusForbidden
 		response.Message = errSessionCheck.Error()
 
@@ -118,7 +98,7 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !SessionValidation {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Session Expired"
 
@@ -127,12 +107,12 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	datas, err := models.GetDashboardsData(userId)
+	datas, err := module.GetDashboardsDataFromDB(userId)
 
 	if err != nil {
 		log.Fatalf("Unable to retrieve data. %v", err)
 
-		var response responseDashboards
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusInternalServerError
 		response.Message = "Error retrieving data"
 
@@ -142,7 +122,7 @@ func GetDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var response ResponseDashboardsData
+	var response response.ResponseDashboardsData
 	response.Status = http.StatusOK
 	response.Message = "Success"
 	response.Data = datas
@@ -162,7 +142,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 
 	if authHeader == "" {
 		// If the authorization header is empty, return an error
-		var response ResponseAllError
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Missing authorization header"
 
@@ -171,10 +151,10 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var modelUpdate UpdateDashboardsData
+	var modelUpdate request.RequestUpdateDashboardsData
 	err := json.NewDecoder(r.Body).Decode(&modelUpdate)
 	if err != nil {
-		var response responseDashboards
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusBadRequest
 		response.Message = "Invalid request body"
 
@@ -188,7 +168,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	if errGetUuid != nil {
 		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
 
-		var response responseDashboards
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusInternalServerError
 		response.Message = "Error retrieving UserId"
 
@@ -202,7 +182,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
 
 	if erroCheckJWt != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = erroCheckJWt.Error()
 
@@ -212,7 +192,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !CheckJwtTokenValidation {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Unauthorized user"
 
@@ -224,7 +204,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
 
 	if errSessionCheck != nil {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusForbidden
 		response.Message = errSessionCheck.Error()
 
@@ -234,7 +214,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !SessionValidation {
-		var response responseUserProfile
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusUnauthorized
 		response.Message = "Session Expired"
 
@@ -243,12 +223,12 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	boolResult, err := models.UpdateDashboardsData(userId, modelUpdate.Mode)
+	boolResult, err := module.UpdateDashboardsDataFromDB(userId, modelUpdate.Mode)
 
 	if err != nil {
 		log.Fatalf("Unable to retrieve data. %v", err)
 
-		var response responseDashboards
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusInternalServerError
 		response.Message = "Error retrieving data"
 
@@ -258,7 +238,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if boolResult {
-		var response responseDashboards
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusOK
 		response.Message = "Success"
 
@@ -267,7 +247,7 @@ func UpdtDshbrdDat(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	} else {
-		var response responseDashboards
+		var response response.GeneralResponseNoData
 		response.Status = http.StatusNotAcceptable
 		response.Message = "Error try again later / contact dev"
 
