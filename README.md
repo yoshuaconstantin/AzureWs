@@ -72,7 +72,7 @@ If you have any feedback, please reach out to us at joshuaconstantine.k@gmail.co
 - [@yoshuaconstantin](https://github.com/yoshuaconstantin)
 
 
-## API Reference [WIP]
+## Example API Reference [WIP]
 
 ### All Request need JWT Token as Header
 
@@ -91,34 +91,6 @@ If you have any feedback, please reach out to us at joshuaconstantine.k@gmail.co
 
 After checking if username already taken or not, this will trigger init function
 
-#### Change Account Password
-
-```http
-  PUT /api/user
-```
-
-| Parameter | Type     | Description                       |
-| :-------- | :------- | :-------------------------------- |
-| `token`      | `string` | **Required**. To Aunth and get UserId |
-| `password`      | `string` | **Required**. To replace old password |
-
-#### UpdatePassword(token, password)
-
-This API is for change account password with token to aunth
-
-#### Delete Account
-
-```http
-  Delete /api/user
-```
-
-| Parameter | Type     | Description                       |
-| :-------- | :------- | :-------------------------------- |
-| `token`      | `string` | **Required**. To Aunth and get UserId |
-
-#### DeleteUser(token)
-
-This API is for Deleting account with token to aunth
 
 #### Login
 
@@ -149,21 +121,6 @@ This login info if succes will generate token to request everything
 
 After request succes user will get their dashboards data
 
-#### Update Dashboards Data
-
-```http
-  POST /api/update/dashboard/data
-```
-
-| Parameter | Type     | Description                       |
-| :-------- | :------- | :-------------------------------- |
-| `token`      | `string` | **Required**. To Aunth and get UserId |
-| `modes`      | `string` | **Required**. To Update specific modes|
-
-#### UpdateDashboardsData(token, modes)
-
-Example if modes = "profile" -> then update the Dashboards profiles mode
-
 #### Upload Profile Image
 
 ```http
@@ -178,37 +135,6 @@ Example if modes = "profile" -> then update the Dashboards profiles mode
 #### UploadProfileImage(token, data)
 
 This will convert byte image to actual image and store into local dir, and store generated image url to database with it's userId
-
-#### Update Profile Image
-
-```http
-  PUT /api/home/user/profile/image
-```
-
-| Parameter | Type     | Description                       |
-| :-------- | :------- | :-------------------------------- |
-| `token`      | `string` | **Required**. To Aunth and get UserId |
-| `oldImgUrl`      | `string` | **Required**. To delete previous saved img|
-| `data`      | `byte` | **Required**. Byte to convert into Image Url|
-
-#### UpdateProfileImage(token, oldImgUrl, data)
-
-This will update the profile image and delete previous image from local dir
-
-#### Delete Profile Image
-
-```http
-  DELETE /api/home/user/profile/image
-```
-
-| Parameter | Type     | Description                       |
-| :-------- | :------- | :-------------------------------- |
-| `token`      | `string` | **Required**. To Aunth and get UserId |
-| `oldImgUrl`      | `string` | **Required**. To delete previous saved img|
-
-#### DeleteProfileImage(token, oldImgUrl)
-
-This will delete user profile image from DB and Local Dir
 
 #### Update Profile Data
 
@@ -243,6 +169,25 @@ This API is for updating account profile information
 #### GetProfileData(Token)
 
 This API is for get all user profile data information
+
+
+#### Community Chat WebSocket
+
+```http
+  Connect to Url /community_chat
+```
+
+| Parameter | Type     | Description                       |
+| :-------- | :------- | :-------------------------------- |
+| `User_id`      | `string` | **Required**. To save into tables as primary UserId|
+| `nickname`      | `string` | **Required**. To know who's the sender of chat|
+| `message`      | `string` | **Required**. body message|
+| `nation`      | `string` | **Not Required**. To inform nationality of the sender|
+
+#### Community_chat(json{user_id,nickname,message,nation})
+
+Because this service using websocket, users need to connect it first then send the json type
+it will also return same model but without user_id in it. it's happen realtime
 
 
 ## Badges
