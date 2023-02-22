@@ -30,7 +30,7 @@ func InitUserProfileToDatabase(userId string) (bool, error) {
 	currentTime := time.Now()
 	CreatedDate := currentTime.Format("2006-01-02 15:04")
 
-	sqlStatement := `INSERT INTO user_profile (user_id, nickname, age, gender, image_url, created_since) VALUES ($1, '','','','',$2)`
+	sqlStatement := `INSERT INTO user_profile (user_id, nickname, age, gender, nation, image_url, created_since) VALUES ($1, '', '','','','',$2)`
 
 	_, err := db.Exec(sqlStatement, userId, CreatedDate)
 
@@ -51,9 +51,9 @@ func UpdateUserProfileToDatabase(userData models.UserProfileDataModel, userId st
 	fmt.Println(userData)
 	fmt.Println(userId)
 
-	sqlStatement := `UPDATE user_profile SET nickname = $1, age = $2, gender = $3, image_url = $4 WHERE user_id = $5`
+	sqlStatement := `UPDATE user_profile SET nickname = $1, age = $2, gender = $3, image_url = $4, nation = $5 WHERE user_id = $6`
 
-	_, err := db.Exec(sqlStatement, userData.Nickname, userData.Age, userData.Gender, userData.ImageUrl, userId)
+	_, err := db.Exec(sqlStatement, userData.Nickname, userData.Age, userData.Gender, userData.ImageUrl, userData.Nation,userId)
 
 	if err != nil {
 		log.Fatalf("\nUPDATE USER PROFILE - Cannot execute command : %v\n", err)
@@ -79,7 +79,7 @@ func GetUserProfileDataFromDatabase(userId string) ([]models.GetUserProfileDataM
 
 	var profileData []models.GetUserProfileDataModel
 
-	sqlStatement := `SELECT nickname,age,gender,image_url,created_since FROM user_profile where user_id = $1`
+	sqlStatement := `SELECT nickname,age,gender,image_url,nation,created_since FROM user_profile where user_id = $1`
 
 	rows, err := db.Query(sqlStatement, userId)
 

@@ -149,6 +149,7 @@ This will convert byte image to actual image and store into local dir, and store
 | `data [nickname]`      | `string` | **Not Required**. To save account nickname|
 | `data [age]`      | `string` | **Not Required**. To save account age |
 | `data [gender]`      | `string` | **Not Required**. To save account gender|
+| `data [nation]`      | `string` | **Not Required**. To save account nationality|
 | `data [imageUrl]`      | `string` | **Not Required**. To save account Image Url|
 
 

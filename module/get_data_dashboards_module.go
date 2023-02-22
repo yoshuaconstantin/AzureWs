@@ -65,7 +65,6 @@ func GetDashboardsDataFromDB(userId string) ([]models.DashboardsDataModel, error
 
 	// return empty buku atau jika error
 	return dashboardsData, err
-
 }
 
 func UpdateDashboardsDataFromDB(userId string, mode string) (bool, error) {

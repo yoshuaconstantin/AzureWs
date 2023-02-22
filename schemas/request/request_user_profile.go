@@ -26,6 +26,7 @@ type RequestInsertProfileData struct {
 		Nickname string `json:"nickname,omitempty"`
 		Age      string `json:"age,omitempty"`
 		Gender   string `json:"gender,omitempty"`
+		Nation	 string `json:"nation,omitempty"`
 		ImageUrl string `json:"image_url,omitempty"`
 	} `json:"data"`
 }
