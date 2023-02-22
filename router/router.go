@@ -2,6 +2,7 @@ package router
 
 import (
 	"AzureWS/controller"
+	"AzureWS/websocketstruct"
 
 	"github.com/gorilla/mux"
 )
@@ -42,6 +43,9 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/home/user/feedback", controller.InsrtFdbckUsr).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/home/user/feedback", controller.UpdtCmmtFdbckUsr).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/home/user/feedback", controller.DelUsrFdbck).Methods("DELETE", "OPTIONS")
+
+	// Community chat using websocket
+	router.HandleFunc("/community_chat", websocketstruct.CommunityChat)
 
 
 	return router
