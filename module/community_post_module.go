@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"time"
+	Gv "AzureWS/globalvariable"
 
 	_ "github.com/lib/pq" // postgres golang driver
 )
@@ -99,11 +99,8 @@ func InsertCommunityPostToDB(userId string, postDataModels models.PostDataModels
 
 	sqlStatement := `INSERT INTO community_post (user_id, nickname, post_message, nation, image_url, created_date, is_edited) VALUES ($1, $2, $3, $4, $5, $6, 'false')`
 
-	currentTime := time.Now()
 
-	FormatedTime := currentTime.Format(time.RFC3339)
-
-	_, err := db.Exec(sqlStatement, userId, postDataModels.Nickname, postDataModels.PostMessage, postDataModels.Nation, postDataModels.ImageUrl, FormatedTime)
+	_, err := db.Exec(sqlStatement, userId, postDataModels.Nickname, postDataModels.PostMessage, postDataModels.Nation, postDataModels.ImageUrl, Gv.FormatedTime)
 
 	if err != nil {
 
@@ -122,11 +119,7 @@ func UpdateCommunityPostFromDB(userId string, updatePostData request.UpdatePostD
 
 	sqlStatement := `UPDATE community_post SET post_message =$1, created_date =$2, is_edited = 'true' WHERE user_id = $3 AND id = $4`
 
-	currentTime := time.Now()
-
-	FormatedTime := currentTime.Format(time.RFC3339)
-
-	_, err := db.Exec(sqlStatement, updatePostData.PostMessage, FormatedTime, userId, updatePostData.PostId)
+	_, err := db.Exec(sqlStatement, updatePostData.PostMessage, Gv.FormatedTime, userId, updatePostData.PostId)
 
 	if err != nil {
 
@@ -258,11 +251,7 @@ func InsertCommentCommunityPostToDB(userId string, commentData request.CommentPo
 
 	sqlStatement := `INSERT INTO community_post_comment (user_id, post_id, nickname, comment_body, time_comment, is_edited) VALUES ($1, $2, $3, $4, $5, 'false')`
 
-	currentTime := time.Now()
-
-	FormatedTime := currentTime.Format(time.RFC3339)
-
-	_, err := db.Exec(sqlStatement, userId, commentData.PostId, commentData.Nickname, commentData.CommentBody, FormatedTime)
+	_, err := db.Exec(sqlStatement, userId, commentData.PostId, commentData.Nickname, commentData.CommentBody, Gv.FormatedTime)
 
 	if err != nil {
 
@@ -279,11 +268,7 @@ func UpdateCommentCommunityPostFromDB(userId string, updateCommentCommunityPost 
 
 	sqlStatement := `UPDATE community_post_comment SET comment_body =$1, time_comment =$2, is_edited = 'true' WHERE user_id = $3 AND post_id = $4 AND id = $5`
 
-	currentTime := time.Now()
-
-	FormatedTime := currentTime.Format(time.RFC3339)
-
-	_, err := db.Exec(sqlStatement, updateCommentCommunityPost.CommentBody, FormatedTime, userId, updateCommentCommunityPost.PostId, updateCommentCommunityPost.CommentId)
+	_, err := db.Exec(sqlStatement, updateCommentCommunityPost.CommentBody, Gv.FormatedTime, userId, updateCommentCommunityPost.PostId, updateCommentCommunityPost.CommentId)
 
 	if err != nil {
 

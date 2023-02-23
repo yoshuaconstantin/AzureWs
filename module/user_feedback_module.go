@@ -3,17 +3,19 @@ package module
 import (
 	"AzureWS/config"
 	"AzureWS/schemas/models"
+	Gv "AzureWS/globalvariable"
+
 )
 
 // Insert Feedback to database using non-model data
-func InsertFeedbackUserToDB(UserId, Nickname, Comment, Timestamp string) (bool, error) {
+func InsertFeedbackUserToDB(UserId, Nickname, Comment string) (bool, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
 
 	sqlStatement := `INSERT INTO user_feedback (user_id, nickname, comment, timestamp, is_edited) VALUES ($1, $2, $3, $4, 'false')`
 
-	_, err := db.Exec(sqlStatement, UserId, Nickname, Comment, Timestamp)
+	_, err := db.Exec(sqlStatement, UserId, Nickname, Comment, Gv.FormatedTime)
 
 	if err != nil {
 		return false, err
@@ -52,14 +54,14 @@ func GetFeedBackUserDataFromDB(offset int) ([]models.ReturnFeedBackUserModel, er
 }
 
 // Edit Feedback if match with userId
-func EditFeedBackUserFromDB(id int, comment, timestamp, userId string) (bool, error) {
+func EditFeedBackUserFromDB(id int, comment, userId string) (bool, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
 
 	sqlStatement := `UPDATE user_feedback SET comment = $1, timestamp = $2 is_edit = 'true' WHERE id = $3 AND user_id = $4`
 
-	_, err := db.Exec(sqlStatement, id, comment, timestamp, userId)
+	_, err := db.Exec(sqlStatement, id, comment, Gv.FormatedTime, userId)
 
 	if err != nil {
 		return false, err

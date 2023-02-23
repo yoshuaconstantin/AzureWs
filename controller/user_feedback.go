@@ -119,7 +119,7 @@ func InsrtFdbckUsr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	InsertUserFeedback, errInsertFeedback := module.InsertFeedbackUserToDB(userId, GetNickname, GetDataRequest.Comment, GetDataRequest.Timestamp)
+	InsertUserFeedback, errInsertFeedback := module.InsertFeedbackUserToDB(userId, GetNickname, GetDataRequest.Comment)
 
 	if errInsertFeedback != nil {
 		var response response.GeneralResponseNoData
@@ -241,7 +241,7 @@ func UpdtCmmtFdbckUsr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	EditFeedback, errEditFeedback := module.EditFeedBackUserFromDB(GetDataRequest.Id, GetDataRequest.Comment, GetDataRequest.Timestamp, userId)
+	EditFeedback, errEditFeedback := module.EditFeedBackUserFromDB(GetDataRequest.Id, GetDataRequest.Comment, userId)
 
 	if errEditFeedback != nil {
 		var response response.GeneralResponseNoData

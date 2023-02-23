@@ -5,7 +5,8 @@ import (
 	"fmt"
     "time"
 	"log"
-
+	Gv "AzureWS/globalvariable"
+	
 	"github.com/gorilla/websocket"
 )
 
@@ -17,11 +18,7 @@ func SaveChatToDB(chatModel ChatMessageModel) (bool, error) {
 
 	sqlStatement := `INSERT INTO community_chat (user_id, nickname, message, timestamp, nation) VALUES ($1, $2, $3, $4, $5)`
 
-	currentTime := time.Now()
-
-	FormatedTime := currentTime.Format(time.RFC3339)
-
-	_, err := db.Exec(sqlStatement, chatModel.UserId, chatModel.Nickname, chatModel.Message, FormatedTime, chatModel.Nation)
+	_, err := db.Exec(sqlStatement, chatModel.UserId, chatModel.Nickname, chatModel.Message, Gv.FormatedTime, chatModel.Nation)
 
 	if err != nil {
 		return false, fmt.Errorf("%s %v", "INSERT CHAT TO DB - Cannot execute query :", err)

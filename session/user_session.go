@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
-	"time"
+	Gv "AzureWS/globalvariable"
 
 	_ "github.com/lib/pq"
 	//"golang.org/x/crypto/bcrypt"
@@ -22,16 +22,11 @@ func ReNewSessionLogin(userId string) (bool, error) {
 	// Close the connection at the end of the process.
 	defer db.Close()
 
-	// Set the expiration time for the session.
-	currentTime := time.Now()
-	expiry := currentTime.Add(time.Hour * 24 * 3)
-	expiryStr := expiry.Format("2006-01-02 15:04")
-
 	// Create a SQL query to update the expired date and is_active flag for the session.
 	sqlStatement := `UPDATE user_session SET expired = $1, is_active = 'true' WHERE user_id = $2`
 
 	// Execute the SQL statement.
-	_, err := db.Exec(sqlStatement, expiryStr, userId)
+	_, err := db.Exec(sqlStatement, Gv.ExpiryStr, userId)
 
 	// If there's an error in executing the SQL statement, return the error.
 	if err != nil {
@@ -68,11 +63,9 @@ func CheckSessionInside(userId string) (bool, error) {
 		return false, err
 	}
 
-	currentTime := time.Now()
-	expiryStr := currentTime.Format("2006-01-02 15:04")
 
 	if isExpired.Valid {
-		if expiryStr > isExpired.String {
+		if Gv.ExpiryStr > isExpired.String {
 			return false, fmt.Errorf("%s", "\nSESSION CHECKING - Session Expired, log in again.\n")
 		} else {
 			return true, nil
@@ -98,13 +91,8 @@ func CreateNewSession(userId string) (bool, error) {
 
 	}
 
-	//Generate expired session today + next 3 days.
-	currentTime := time.Now()
-	expiry := currentTime.Add(time.Hour * 24 * 3)
-	expiryStr := expiry.Format("2006-01-02 15:04")
-
 	// Execute the SQL statement.
-	_, err := db.Exec(sqlStatement, userId, sessionID, expiryStr)
+	_, err := db.Exec(sqlStatement, userId, sessionID, Gv.ExpiryStr)
 
 	// If there's an error in executing the SQL statement, return the error.
 	if err != nil {

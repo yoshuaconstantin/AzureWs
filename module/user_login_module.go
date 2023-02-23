@@ -236,12 +236,18 @@ func RemoveUserDB(userId string) (string, error) {
 	sqlStatementDshbrds := `DELETE FROM dashboards_data WHERE user_id=$1`
 	sqlStatementUsrFdbck := `DELETE FROM user_feedback WHERE user_id=$1`
 	sqlStatementUsrPrfl := `DELETE FROM user_profile WHERE user_id=$1`
+	sqlStatementCmnyPst := `DELETE FROM community_post WHERE user_id = $1`
+	sqlStatementCmnyCmnt := `DELETE FROM community_post_comment WHERE user_id = $1`
+	sqlStatementCmnyLike := `DELETE FROM community_post_like WHERE user_id = $1`
 
 	// eksekusi sql statement
 	_, errDelUsrLgn := db.Exec(sqlStatementUsrLgn, userId)
 	_, errDelDshbrds := db.Exec(sqlStatementDshbrds, userId)
 	_, errDelUsrFdbck := db.Exec(sqlStatementUsrFdbck, userId)
 	_, errDelUsrPrfl := db.Exec(sqlStatementUsrPrfl, userId)
+	_, errDelCmnyPst  := db.Exec(sqlStatementCmnyPst, userId)
+	_, errDelCmnyCmnt := db.Exec(sqlStatementCmnyCmnt, userId)
+	_, errDelCmnyLike := db.Exec(sqlStatementCmnyLike, userId)
 
 	if errDelUsrLgn != nil {
 		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", errDelUsrLgn)
@@ -265,6 +271,24 @@ func RemoveUserDB(userId string) (string, error) {
 		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", errDelUsrPrfl)
 
 		return "", errDelUsrPrfl
+	}
+
+	if errDelCmnyPst != nil {
+		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", errDelCmnyPst)
+
+		return "", errDelCmnyPst
+	}
+
+	if errDelCmnyCmnt != nil {
+		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", errDelCmnyCmnt)
+
+		return "", errDelCmnyCmnt
+	}
+
+	if errDelCmnyLike != nil {
+		log.Fatalf("DELETE USER - OPERATION FAILED, REASON : %v", errDelCmnyLike)
+
+		return "", errDelCmnyLike
 	}
 
 	return "DELETE USER - Operation succes", nil
