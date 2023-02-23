@@ -47,7 +47,18 @@ func Router() *mux.Router {
 	// Community chat using websocket
 	router.HandleFunc("/community_chat", websocketstruct.CommunityChat)
 
+	// Community Post
+	router.HandleFunc("/api/community/post", controller.GetAllCommunityPost).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/community/post", controller.InsertNewCommunityPost).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/community/post", controller.UpdateUserCommunityPost).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/api/community/post", controller.DeleteUserCommunityPost).Methods("DELETE", "OPTIONS")
 
+	router.HandleFunc("/api/community/post/like", controller.InsertNewLikeCommunityPost).Methods("POST", "OPTIONS")
+
+	router.HandleFunc("/api/community/post/comment", controller.GetSpecificCommunityPostComment).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/community/post/comment", controller.InsertNewCommentCommunityPost).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/community/post/comment", controller.UpdateUserCommentCommunityPost).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/api/community/post/comment", controller.DeleteUserCommentCommunityPost).Methods("DELETE", "OPTIONS")
 	return router
 
 }

@@ -1,26 +1,18 @@
 package request
 
 type RequestInsertCommunityPost struct {
-	Token string `json:"token"`
-	Data  []PostData `json:"data"`
-}
-
-type PostData struct {
-	Nickname 		string `json:"nickname"`
-	PostMessage		string `json:"PostMessage"`
-	Nation	 		string `json:"nation,omitempty"`
-	ImageUrl 		string `json:"image_url,omitempty"`
+	Token 			string `json:"token"`
+	PostMessage		string `json:"post_message"`
 }
 
 type RequestUpdateCommunityPost struct {
 	Token string `json:"token"`
-	Data  []PostData `json:"data"`
+	Data  []UpdatePostData `json:"data"`
 }
 
 type UpdatePostData struct {
-	PostId 		string `json:"post_id"`
+	PostId 		int `json:"post_id"`
 	PostMessage		string `json:"post_message"`
-	TimePost		string `json:"time_post"`
 }
 
 type RequestDeleteCommunityPost struct {
@@ -29,7 +21,7 @@ type RequestDeleteCommunityPost struct {
 }
 
 type DeletePostData struct {
-	PostId 		string `json:"post_id"`
+	PostId 		int `json:"post_id"`
 }
 
 type RequestInsertLikeCommunityPost struct {
@@ -38,9 +30,18 @@ type RequestInsertLikeCommunityPost struct {
 }
 
 type LikePost struct {
-	PostId 		string `json:"post_id"`
-	Nickname		string `json:"nickname"`
-	IsLike	 		string `json:"is_like"`
+	PostId 		int `json:"post_id"`
+	IsLike		string `json:"is_like"`
+}
+
+type RequestGetCommentCommunityPost struct {
+	Token string `json:"token"`
+	Data  []CommentData `json:"data"`
+}
+
+type CommentData struct {
+	PostId	int `json:"post_id"`
+	Index 	int `json:"index"`
 }
 
 type RequestInsertCommentCommunityPost struct {
@@ -49,10 +50,9 @@ type RequestInsertCommentCommunityPost struct {
 }
 
 type CommentPost struct {
-	PostId			string `json:"post_id"`
+	PostId			int `json:"post_id"`
 	Nickname		string `json:"nickname"`
 	CommentBody		string `json:"comment_body"`
-	TimeComment		string `json:"time_comment"`
 }
 
 type RequestUpdateCommentCommunityPost struct {
@@ -61,18 +61,17 @@ type RequestUpdateCommentCommunityPost struct {
 }
 
 type UpdateCommentPost struct {
-	PostId			string `json:"post_id"`
-	CommentId		string `json:"comment_id"`
+	PostId			int `json:"post_id"`
+	CommentId		int `json:"comment_id"`
 	CommentBody		string `json:"comment_body"`
-	TimeComment		string `json:"time_comment"`
 }
 
 type RequestDeleteCommentCommunityPost struct {
 	Token string `json:"token"`
-	Data  []UpdateCommentPost `json:"data"`
+	Data  []DeleteCommentPost `json:"data"`
 }
 
 type DeleteCommentPost struct {
-	PostId			string `json:"post_id"`
-	CommentId		string `json:"comment_id"`
+	PostId			int `json:"post_id"`
+	CommentId		int `json:"comment_id"`
 }

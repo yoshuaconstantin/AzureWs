@@ -92,7 +92,7 @@ func GetUserProfileDataFromDatabase(userId string) ([]models.GetUserProfileDataM
 	for rows.Next() {
 		var getUserProfileData models.GetUserProfileDataModel
 
-		err = rows.Scan(&getUserProfileData.Nickname, &getUserProfileData.Age, &getUserProfileData.Gender, &getUserProfileData.ImageUrl, &getUserProfileData.CreatedSince)
+		err = rows.Scan(&getUserProfileData.Nickname, &getUserProfileData.Age, &getUserProfileData.Gender, &getUserProfileData.ImageUrl, &getUserProfileData.Nation, &getUserProfileData.CreatedSince)
 
 		if err != nil {
 			log.Fatalf("GET USER DATA PROFILE - Error : %v", err)

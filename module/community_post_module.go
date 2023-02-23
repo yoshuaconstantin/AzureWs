@@ -2,24 +2,26 @@ package module
 
 import (
 	"AzureWS/config"
+	"AzureWS/schemas/models"
 	"AzureWS/schemas/request"
 	"AzureWS/schemas/response"
-	"log"
-
+	"database/sql"
 	"fmt"
+	"log"
+	"time"
 
 	_ "github.com/lib/pq" // postgres golang driver
 )
 
-//Community Post Area
-func GetAllCommunityPostFromDB(indexPost, indexComment int) ([]response.PostData, error){
+// Community Post Area
+func GetAllCommunityPostFromDB(indexPost int, UserId string) ([]response.PostData, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
 
 	var postDatas []response.PostData
-	
-	sqlStatement := `SELECT * FROM community_post LIMIT 20 OFFSET $1`
+
+	sqlStatement := `SELECT id,nickname,post_message,nation,image_url,created_date,is_edited FROM community_post LIMIT 10 OFFSET $1`
 
 	var OffsetPost = indexPost * 10
 
@@ -28,19 +30,53 @@ func GetAllCommunityPostFromDB(indexPost, indexComment int) ([]response.PostData
 	if err != nil {
 		log.Fatalf("Cannot exec the query : %v", err)
 	}
-	
-	defer rows.Close()
 
 	for rows.Next() {
 		var postDat response.PostData
 
-		err = rows.Scan( &postDat.PostId, &postDat.Nickname, &postDat.PostMessage, &postDat.Nation, &postDat.ImageUrl, &postDat.LikeCount, &postDat.CommentCount)
+		err = rows.Scan(&postDat.Id, &postDat.Nickname, &postDat.PostMessage, &postDat.Nation, &postDat.ImageUrl, &postDat.CreatedDate, &postDat.IsEdited)
 
 		if err != nil {
 			log.Fatalf("Cannot get all the post data. %v", err)
 		}
 
-		GetComments, errGetCmnt := GetAllCommentCommunityPostFromDB(postDat.PostId)
+		sqlStatement := `SELECT user_id FROM community_post WHERE user_id=$1 AND id = $2`
+
+		row := db.QueryRow(sqlStatement, UserId, postDat.Id)
+
+		var userID string
+
+		if err := row.Scan(&userID); err != nil {
+			if err == sql.ErrNoRows {
+				// User ID not found
+				postDat.OwnPost = "false"
+			} else {
+				return nil, err
+			}
+		} else {
+			// User ID found
+			postDat.OwnPost = "true"
+		}
+
+		var countComment int
+		var countLike int
+		err = db.QueryRow("SELECT COUNT(*) FROM community_post_comment WHERE post_id = $1", &postDat.Id).Scan(&countComment)
+
+		if err != nil {
+			// handle error
+			return nil, err
+		}
+		err = db.QueryRow("SELECT COUNT(*) FROM community_post_like WHERE post_id = $1", &postDat.Id).Scan(&countLike)
+
+		if err != nil {
+			// handle error
+			return nil, err
+		}
+
+		postDat.LikeCount = countLike
+		postDat.CommentCount = countComment
+
+		GetComments, errGetCmnt := GetAllPreviewCommentCommunityPostFromDB(postDat.Id)
 
 		if errGetCmnt != nil {
 			return nil, errGetCmnt
@@ -50,22 +86,27 @@ func GetAllCommunityPostFromDB(indexPost, indexComment int) ([]response.PostData
 
 		postDatas = append(postDatas, postDat)
 	}
-	
+
+	defer rows.Close()
+
 	return postDatas, err
 }
 
-func InsertCommunityPostToDB(userId string, postData request.PostData) (bool, error) {
+func InsertCommunityPostToDB(userId string, postDataModels models.PostDataModels) (bool, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
 
-	sqlStatement := `INSERT INTO community_post (user_id, Nickname, PostMessage, Nation, ImageUrl) VALUES ($1, $2, $3, $4, $5)`
+	sqlStatement := `INSERT INTO community_post (user_id, nickname, post_message, nation, image_url, created_date, is_edited) VALUES ($1, $2, $3, $4, $5, $6, 'false')`
 
-	_, err := db.Exec(sqlStatement, userId, postData.Nickname, postData.PostMessage, postData.Nation, postData.ImageUrl)
+	currentTime := time.Now()
 
+	FormatedTime := currentTime.Format(time.RFC3339)
+
+	_, err := db.Exec(sqlStatement, userId, postDataModels.Nickname, postDataModels.PostMessage, postDataModels.Nation, postDataModels.ImageUrl, FormatedTime)
 
 	if err != nil {
-		
+
 		return false, fmt.Errorf("%s", "Failed, try again later")
 	}
 
@@ -79,14 +120,17 @@ func UpdateCommunityPostFromDB(userId string, updatePostData request.UpdatePostD
 
 	defer db.Close()
 
-	sqlStatement := `UPDATE community_post SET post_message =$1, time_comment =$2, is_edited = 'true' WHERE user_id = $3 AND post_id = $4`
+	sqlStatement := `UPDATE community_post SET post_message =$1, created_date =$2, is_edited = 'true' WHERE user_id = $3 AND id = $4`
 
-	_, err := db.Exec(sqlStatement, userId, updatePostData.PostMessage, updatePostData.TimePost, userId, updatePostData.PostId)
+	currentTime := time.Now()
 
+	FormatedTime := currentTime.Format(time.RFC3339)
+
+	_, err := db.Exec(sqlStatement, updatePostData.PostMessage, FormatedTime, userId, updatePostData.PostId)
 
 	if err != nil {
-		
-		return false, fmt.Errorf("%s", "Failed, try again later")
+
+		return false, fmt.Errorf("%s %v", "Failed :", err)
 	}
 
 	fmt.Printf("Insert data single record into Dashboards data\n")
@@ -99,7 +143,7 @@ func DeleteCommunityPostFromDB(userId string, deletePostData request.DeletePostD
 
 	defer db.Close()
 
-	sqlStatement := `DELETE FROM community_post WHERE user_id = $1 AND post_id = $2`
+	sqlStatement := `DELETE FROM community_post WHERE user_id = $1 AND id = $2`
 
 	_, err := db.Exec(sqlStatement, userId, deletePostData.PostId)
 
@@ -108,42 +152,42 @@ func DeleteCommunityPostFromDB(userId string, deletePostData request.DeletePostD
 	_, errDelData := db.Exec(sqlStatementDeleteData, deletePostData.PostId)
 
 	if errDelData != nil {
-		
-		return false, fmt.Errorf("%s", "Failed, try again later")
+
+		return false, fmt.Errorf("%s %v", "Failed :", errDelData)
 	}
 
 	if err != nil {
-		
-		return false, fmt.Errorf("%s", "Failed, try again later")
+
+		return false, fmt.Errorf("%s %v", "Failed :", err)
 	}
 
 	return true, nil
 }
+
 //End Community Post Area
 
-//Comment Community Post Area
-func GetAllCommentCommunityPostFromDB(PostId string) ([]response.Comment, error){
+// Comment Community Post Area
+func GetAllPreviewCommentCommunityPostFromDB(PostId string) ([]models.CommentDataModels, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
 
-	var commentsData []response.Comment
+	var commentsData []models.CommentDataModels
 
-	sqlStatement := `SELECT * FROM community_post_comment WHERE post_id = $1 LIMIT 20 OFFSET 0`
-
+	sqlStatement := `SELECT id,post_id,nickname,comment_body,time_comment,is_edited FROM community_post_comment WHERE post_id = $1 LIMIT 3 OFFSET 0`
 
 	rows, err := db.Query(sqlStatement, PostId)
 
 	if err != nil {
 		log.Fatalf("Cannot exec the query : %v", err)
 	}
-	
+
 	defer rows.Close()
 
 	for rows.Next() {
-		var data response.Comment
+		var data models.CommentDataModels
 
-		err = rows.Scan( &data.CommentId, &data.Nickname, &data.Message, &data.TimeComment)
+		err = rows.Scan(&data.Id, &data.PostId, &data.Nickname, &data.CommentBody, &data.TimeComment, &data.IsEdited)
 
 		if err != nil {
 			log.Fatalf("Cannot get all the comment data. %v", err)
@@ -155,14 +199,14 @@ func GetAllCommentCommunityPostFromDB(PostId string) ([]response.Comment, error)
 	return commentsData, err
 }
 
-func GetSpecificCommentCommunityPostFromDB(PostId string, indexComment int) ([]response.Comment, error){
+func GetSpecificCommentCommunityPostFromDB(PostId int, indexComment int, UserId string) ([]models.CommentDataModels, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
 
-	var commentsData []response.Comment
+	var commentsData []models.CommentDataModels
 
-	sqlStatement := `SELECT * FROM community_post_comment WHERE post_id = $1 LIMIT 20 OFFSET $2`
+	sqlStatement := `SELECT id,post_id,nickname,comment_body,time_comment,is_edited FROM community_post_comment WHERE post_id = $1 LIMIT 10 OFFSET $2`
 
 	var OffsetComment = indexComment * 10
 
@@ -171,16 +215,34 @@ func GetSpecificCommentCommunityPostFromDB(PostId string, indexComment int) ([]r
 	if err != nil {
 		log.Fatalf("Cannot exec the query : %v", err)
 	}
-	
+
 	defer rows.Close()
 
 	for rows.Next() {
-		var data response.Comment
+		var data models.CommentDataModels
 
-		err = rows.Scan( &data.CommentId, &data.Nickname, &data.Message, &data.TimeComment)
+		err = rows.Scan(&data.Id, &data.PostId, &data.Nickname, &data.CommentBody, &data.TimeComment, &data.IsEdited)
 
 		if err != nil {
 			log.Fatalf("Cannot get all the comment data. %v", err)
+		}
+
+		sqlStatement := `SELECT user_id FROM community_post_comment WHERE user_id=$1 AND post_id = $2`
+
+		row := db.QueryRow(sqlStatement, UserId, data.PostId)
+
+		var userID string
+
+		if err := row.Scan(&userID); err != nil {
+			if err == sql.ErrNoRows {
+				// User ID not found
+				data.OwnComment = "false"
+			} else {
+				return nil, err
+			}
+		} else {
+			// User ID found
+			data.OwnComment = "true"
 		}
 
 		commentsData = append(commentsData, data)
@@ -189,19 +251,22 @@ func GetSpecificCommentCommunityPostFromDB(PostId string, indexComment int) ([]r
 	return commentsData, err
 }
 
-func InserCommentCommunityPostToDB(userId string, commentData request.CommentPost) (bool, error) {
+func InsertCommentCommunityPostToDB(userId string, commentData request.CommentPost) (bool, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
 
-	sqlStatement := `INSERT INTO community_post_comment (user_id, post_id, nickname, comment_body, time_comment) VALUES ($1, $2, $3, $4, $5)`
+	sqlStatement := `INSERT INTO community_post_comment (user_id, post_id, nickname, comment_body, time_comment, is_edited) VALUES ($1, $2, $3, $4, $5, 'false')`
 
-	_, err := db.Exec(sqlStatement, userId, commentData.PostId, commentData.Nickname, commentData.CommentBody, commentData.TimeComment)
+	currentTime := time.Now()
 
+	FormatedTime := currentTime.Format(time.RFC3339)
+
+	_, err := db.Exec(sqlStatement, userId, commentData.PostId, commentData.Nickname, commentData.CommentBody, FormatedTime)
 
 	if err != nil {
-		
-		return false, fmt.Errorf("%s", "Failed, try again later")
+
+		return false, fmt.Errorf("%s %v", "Failed :", err)
 	}
 
 	return true, nil
@@ -212,14 +277,17 @@ func UpdateCommentCommunityPostFromDB(userId string, updateCommentCommunityPost 
 
 	defer db.Close()
 
-	sqlStatement := `UPDATE community_post_comment SET comment_body =$1, time_comment =$2, is_edited = 'true' WHERE user_id = $3 AND post_id = $4 AND comment_id = $5`
+	sqlStatement := `UPDATE community_post_comment SET comment_body =$1, time_comment =$2, is_edited = 'true' WHERE user_id = $3 AND post_id = $4 AND id = $5`
 
-	_, err := db.Exec(sqlStatement, updateCommentCommunityPost.CommentBody, updateCommentCommunityPost.TimeComment, userId, updateCommentCommunityPost.PostId, updateCommentCommunityPost.CommentId)
+	currentTime := time.Now()
 
+	FormatedTime := currentTime.Format(time.RFC3339)
+
+	_, err := db.Exec(sqlStatement, updateCommentCommunityPost.CommentBody, FormatedTime, userId, updateCommentCommunityPost.PostId, updateCommentCommunityPost.CommentId)
 
 	if err != nil {
-		
-		return false, fmt.Errorf("%s", "Failed, try again later")
+
+		return false, fmt.Errorf("%s %v", "Failed :", err)
 	}
 
 	return true, nil
@@ -230,54 +298,50 @@ func DeleteCommentCommunityPostFromDB(userId string, deleteCommentData request.D
 
 	defer db.Close()
 
-	sqlStatement := `DELETE FROM community_post_comment WHERE user_id = $1 AND post_id = $2 AND comment_id = $3`
+	sqlStatement := `DELETE FROM community_post_comment WHERE user_id = $1 AND post_id = $2 AND id = $3`
 
-	_, err := db.Exec(sqlStatement, userId, deleteCommentData.PostId, deleteCommentData.CommentId, userId)
-
+	_, err := db.Exec(sqlStatement, userId, deleteCommentData.PostId, deleteCommentData.CommentId)
 
 	if err != nil {
-		
-		return false, fmt.Errorf("%s", "Failed, try again later")
+
+		return false, fmt.Errorf("%s %v", "Failed :", err)
 	}
 
 	return true, nil
 }
+
 //End Comment Community Post Area
 
-//Like Community Post Area
-func InserLikeCommunityPostToDB(userId string, likeData request.LikePost) (bool, error) {
-	db := config.CreateConnection()
+// Like Community Post Area
+func InsertLikeCommunityPostToDB(userId string, likeData request.LikePost) (bool, error) {
+    db := config.CreateConnection()
+    defer db.Close()
 
-	defer db.Close()
+    // Check if like already exists for user and post
+    var count int
+    sqlStatement := `SELECT COUNT(*) FROM community_post_like WHERE user_id = $1 AND post_id = $2`
+    err := db.QueryRow(sqlStatement, userId, likeData.PostId).Scan(&count)
+    if err != nil {
+        return false, fmt.Errorf("failed to check if like already exists: %v", err)
+    }
 
-	sqlStatement := `INSERT INTO community_post_like (user_id, post_id, is_like) VALUES ($1, $2, $3)`
+    if count > 0 {
+        // Like already exists, delete it
+        sqlStatement := `DELETE FROM community_post_like WHERE user_id = $1 AND post_id = $2`
+        _, err := db.Exec(sqlStatement, userId, likeData.PostId)
+        if err != nil {
+            return false, fmt.Errorf("failed to delete existing like data: %v", err)
+        }
+    } else {
+        // Like doesn't exist, insert new like data
+        sqlStatement := `INSERT INTO community_post_like (user_id, post_id, is_like) VALUES ($1, $2, $3)`
+        _, err := db.Exec(sqlStatement, userId, likeData.PostId, likeData.IsLike)
+        if err != nil {
+            return false, fmt.Errorf("failed to insert new like data: %v", err)
+        }
+    }
 
-	_, err := db.Exec(sqlStatement, userId, likeData.PostId, likeData.IsLike)
-
-
-	if err != nil {
-		
-		return false, fmt.Errorf("%s", "Failed, try again later")
-	}
-
-	return true, nil
+    return true, nil
 }
 
-func DeleteLikeCommunityPostToDB(userId string, likeData request.LikePost) (bool, error) {
-	db := config.CreateConnection()
-
-	defer db.Close()
-
-	sqlStatement := `DELETE FROM community_post_like WHERE user_id = $1 AND post_id = $2 AND comment_id = $3`
-
-	_, err := db.Exec(sqlStatement, userId, likeData.PostId, likeData.IsLike)
-
-
-	if err != nil {
-		
-		return false, fmt.Errorf("%s", "Failed, try again later")
-	}
-
-	return true, nil
-}
 //End Like Community Post Area
