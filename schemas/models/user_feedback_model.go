@@ -11,5 +11,6 @@ type ReturnFeedBackUserModel struct {
 	Nickname  string `json:"nickname,omitempty"`
 	Comment   string `json:"comment,omitempty"`
 	Timestamp string `json:"timestamp,omitempty"`
+	OwnFeedback	string `json:"own_feedback"`
 	IsEdited  string `json:"is_edited"`
 }

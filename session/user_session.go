@@ -1,17 +1,16 @@
 package session
 
 import (
+	"AzureWS/config"
+	Gv "AzureWS/globalvariable/variable"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"log"
-	Gv "AzureWS/globalvariable"
 
 	_ "github.com/lib/pq"
 	//"golang.org/x/crypto/bcrypt"
-
-	"AzureWS/config"
 )
 
 // Re new the expiration date and is active whenever user login
@@ -26,7 +25,7 @@ func ReNewSessionLogin(userId string) (bool, error) {
 	sqlStatement := `UPDATE user_session SET expired = $1, is_active = 'true' WHERE user_id = $2`
 
 	// Execute the SQL statement.
-	_, err := db.Exec(sqlStatement, Gv.ExpiryStr, userId)
+	_, err := db.Exec(sqlStatement, Gv.ExpiryStrFormatted, userId)
 
 	// If there's an error in executing the SQL statement, return the error.
 	if err != nil {
@@ -63,9 +62,8 @@ func CheckSessionInside(userId string) (bool, error) {
 		return false, err
 	}
 
-
 	if isExpired.Valid {
-		if Gv.ExpiryStr > isExpired.String {
+		if Gv.FormattedTimeNowYYYYMMDDHHMM > isExpired.String {
 			return false, fmt.Errorf("%s", "\nSESSION CHECKING - Session Expired, log in again.\n")
 		} else {
 			return true, nil
@@ -92,7 +90,7 @@ func CreateNewSession(userId string) (bool, error) {
 	}
 
 	// Execute the SQL statement.
-	_, err := db.Exec(sqlStatement, userId, sessionID, Gv.ExpiryStr)
+	_, err := db.Exec(sqlStatement, userId, sessionID, Gv.ExpiryStrFormatted)
 
 	// If there's an error in executing the SQL statement, return the error.
 	if err != nil {

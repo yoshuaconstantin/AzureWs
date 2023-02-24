@@ -20,7 +20,8 @@ import (
 // jika return datanya ada yg null, silahkan pake NullString, contohnya dibawah
 // Var       config.NullString `json:"var"`
 
-func AddUserToDB(user models.UserModel) (string, error) {
+func AddUserToDB(user models.UserModel) (*models.TokenWithJwtModel, error) {
+	var returnData models.TokenWithJwtModel
 
 	db := config.CreateConnection()
 
@@ -32,7 +33,7 @@ func AddUserToDB(user models.UserModel) (string, error) {
 
 	if errUsername != nil {
 		fmt.Printf("\nCREATE USER - Masuk kedalam error\n")
-		return "", errUsername
+		return nil, errUsername
 	}
 
 	//if Validation Username return true (means not having same username)
@@ -50,7 +51,7 @@ func AddUserToDB(user models.UserModel) (string, error) {
 		//Generate UUID untuk userID menggunakan UUID generator
 		userID, errUuid := uuid.NewRandom()
 		if errUuid != nil {
-			fmt.Printf("\nCREATE USER - error generating UUID: %v\n", errUuid)
+			return nil, errUuid
 		}
 
 		var fixedUserId string = userID.String()
@@ -59,10 +60,8 @@ func AddUserToDB(user models.UserModel) (string, error) {
 		//salt := []byte("AzureKey")
 		hashedPassword, errhashed := validation.ValidatePasswordToEncrypt(user.Password)
 
-		fmt.Printf("\nCREATE USER - Generated Password Salt %v\n", hashedPassword)
-
 		if errhashed != nil {
-			fmt.Printf("\nCREATE USER - error generating password hash: %v\n", errhashed)
+			return nil, errhashed
 		}
 
 		//Generate Token menggunakan username, password, timestamp.now
@@ -72,7 +71,7 @@ func AddUserToDB(user models.UserModel) (string, error) {
 		createNewSession, errCreateNewSession := session.CreateNewSession(fixedUserId)
 
 		if errCreateNewSession != nil {
-			return "", errCreateNewSession
+			return nil, errCreateNewSession
 		}
 
 		if createNewSession {
@@ -80,13 +79,13 @@ func AddUserToDB(user models.UserModel) (string, error) {
 			GenereateJWTToken, erroGenerateJwt := jwttoken.GenerateToken(fixedUserId)
 
 			if erroGenerateJwt != nil {
-				return "", erroGenerateJwt
+				return nil, erroGenerateJwt
 			}
 
 			err := db.QueryRow(sqlStatement, fixedUserId, user.Username, hashedPassword, tokenGenerated).Scan(&id)
 
 			if err != nil {
-				log.Fatalf("\nCREATE USER - Tidak Bisa mengeksekusi query. %v\n", err)
+				return nil, err
 			}
 
 			fmt.Printf("\nCREATE USER - Insert data single record into user login %v\n", id)
@@ -95,32 +94,34 @@ func AddUserToDB(user models.UserModel) (string, error) {
 			initDashboards, error := InitDashboardsDataSetToDB(fixedUserId)
 
 			if error != nil {
-				return "", error
+				return nil, error
 			}
 
 			if !initDashboards {
-				return "", fmt.Errorf("%s", "\nCREATE USER - Failed to insert Init Dashboards Data\n")
+				return nil, fmt.Errorf("%s", "\nCREATE USER - Failed to insert Init Dashboards Data\n")
 			}
 
 			//Insert InitProfile
 			InitProfileData, errInitProfileData := InitUserProfileToDatabase(fixedUserId)
 
 			if errInitProfileData != nil {
-				return "", errInitProfileData
+				return nil, errInitProfileData
 			}
 
 			if !InitProfileData {
-				return "", fmt.Errorf("%s", "\nINIT DATA PROFILE - Failed to insert Init Profile Data\n")
+				return nil, fmt.Errorf("%s", "\nINIT DATA PROFILE - Failed to insert Init Profile Data\n")
 			}
+			returnData.JWT = GenereateJWTToken
+			returnData.Token = tokenGenerated
 
-			return GenereateJWTToken, nil
+			return &returnData, nil
 
 		} else {
-			return "", fmt.Errorf("%s", "\nCREATE SESSION - Failed to create new session\n")
+			return nil, fmt.Errorf("%s", "\nCREATE SESSION - Failed to create new session\n")
 		}
 
 	} else {
-		return "", errUsername
+		return nil, errUsername
 	}
 }
 

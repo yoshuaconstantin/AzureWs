@@ -6,3 +6,8 @@ type UserModel struct {
 	Password string  `json:"password"`
 	UserId   *string `json:"user_id,omitempty"`
 }
+
+type TokenWithJwtModel struct {
+	Token	string `json:"token"`
+	JWT		string `json:"jwt"`
+}

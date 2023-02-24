@@ -53,7 +53,7 @@ func UpdateUserProfileToDatabase(userData models.UserProfileDataModel, userId st
 
 	sqlStatement := `UPDATE user_profile SET nickname = $1, age = $2, gender = $3, image_url = $4, nation = $5 WHERE user_id = $6`
 
-	_, err := db.Exec(sqlStatement, userData.Nickname, userData.Age, userData.Gender, userData.ImageUrl, userData.Nation,userId)
+	_, err := db.Exec(sqlStatement, userData.Nickname, userData.Age, userData.Gender, userData.ImageUrl, userData.Nation, userId)
 
 	if err != nil {
 		log.Fatalf("\nUPDATE USER PROFILE - Cannot execute command : %v\n", err)
@@ -72,7 +72,7 @@ Task : Create endpoint for Hit image with GET method and Json filePath
 Step : Hit GetUserProfileData -> return:model -> hit GetImageData (request: userId, filename)
 return:imgUrl -> user should use Image.Network (Flutter)
 */
-func GetUserProfileDataFromDatabase(userId string) ([]models.GetUserProfileDataModel, error) {
+func GetUserProfileDataFromDB(userId string) ([]models.GetUserProfileDataModel, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
@@ -105,7 +105,7 @@ func GetUserProfileDataFromDatabase(userId string) ([]models.GetUserProfileDataM
 }
 
 // Upload photo and update the database Image Url
-func UploadUserProfilePhotoBool(userId string, byteImage []byte) (bool, error) {
+func UploadUserProfilePhotoToDB(userId string, byteImage []byte) (bool, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
@@ -187,7 +187,7 @@ func ConvertByteToImgString(byteImage []byte, userId string) (string, error) {
 }
 
 // Updating the users image and delete the old image
-func UpdateUserProfileImageBool(userId string, newImgUrl string, oldImgUrl string) (bool, error) {
+func UpdateUserProfileImageFromDB(userId string, newImgUrl string, oldImgUrl string) (bool, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
@@ -201,7 +201,7 @@ func UpdateUserProfileImageBool(userId string, newImgUrl string, oldImgUrl strin
 		return false, err
 	}
 
-	DelOldImgUrl, errDelOldImgUrl := DeleteUsersFileImage(oldImgUrl)
+	DelOldImgUrl, errDelOldImgUrl := DeleteUsersFileImageFromLocal(oldImgUrl)
 
 	if errDelOldImgUrl != nil {
 		return false, errDelOldImgUrl
@@ -215,7 +215,7 @@ func UpdateUserProfileImageBool(userId string, newImgUrl string, oldImgUrl strin
 }
 
 // Delete users image url from database
-func DeleteUserImageProfileBool(userId, oldImageUrl string) (bool, error) {
+func DeleteUserImageProfileFromDB(userId, oldImageUrl string) (bool, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
@@ -229,7 +229,7 @@ func DeleteUserImageProfileBool(userId, oldImageUrl string) (bool, error) {
 		return false, err
 	}
 
-	DelOldImgUrl, errDelOldImgUrl := DeleteUsersFileImage(oldImageUrl)
+	DelOldImgUrl, errDelOldImgUrl := DeleteUsersFileImageFromLocal(oldImageUrl)
 
 	if errDelOldImgUrl != nil {
 		return false, errDelOldImgUrl
@@ -249,7 +249,7 @@ Example *export SECRET_PATH=/path/to/your/secret/path*
 then use this to call the path : filePath := os.Getenv("SECRET_FILE_PATH")
 */
 // Remove the users old image
-func DeleteUsersFileImage(oldImageUrl string) (bool, error) {
+func DeleteUsersFileImageFromLocal(oldImageUrl string) (bool, error) {
 
 	u, err := url.Parse(oldImageUrl)
 	if err != nil {

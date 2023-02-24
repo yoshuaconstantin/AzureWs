@@ -2,11 +2,11 @@ package websocketstruct
 
 import (
 	"AzureWS/config"
+	Gv "AzureWS/globalvariable/variable"
 	"fmt"
-    "time"
 	"log"
-	Gv "AzureWS/globalvariable"
-	
+	"time"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -18,7 +18,7 @@ func SaveChatToDB(chatModel ChatMessageModel) (bool, error) {
 
 	sqlStatement := `INSERT INTO community_chat (user_id, nickname, message, timestamp, nation) VALUES ($1, $2, $3, $4, $5)`
 
-	_, err := db.Exec(sqlStatement, chatModel.UserId, chatModel.Nickname, chatModel.Message, Gv.FormatedTime, chatModel.Nation)
+	_, err := db.Exec(sqlStatement, chatModel.UserId, chatModel.Nickname, chatModel.Message, Gv.FormatedTimeiso8601, chatModel.Nation)
 
 	if err != nil {
 		return false, fmt.Errorf("%s %v", "INSERT CHAT TO DB - Cannot execute query :", err)
@@ -63,28 +63,24 @@ func RestoreHistoryChatFromDB(conn *websocket.Conn) error {
 func DeleteOldMessage() {
 	ticker := time.NewTicker(24 * time.Hour) // ticker that runs once a day
 	defer ticker.Stop()
-    quit := make(chan struct{})
+	quit := make(chan struct{})
 
 	for {
 		select {
 		case <-ticker.C:
 			db := config.CreateConnection()
 
-			thirtyDaysAgo := time.Now().Add(-30 * 24 * time.Hour)
-
-			FormatedTime := thirtyDaysAgo.Format(time.RFC3339)
-
-			_, err := db.Exec("DELETE FROM community_chat WHERE timestamp < $1", FormatedTime)
+			_, err := db.Exec("DELETE FROM community_chat WHERE timestamp < $1", Gv.FormatedTime30DayAgoIso8601)
 
 			if err != nil {
 				log.Println("Error deleting old chat messages: ", err)
 			} else {
 				log.Println("Successfully deleted old chat messages")
 			}
-        case <-quit:
-            // stop the infinite loop when the quit channel receives a signal
-            return
-	
-        }
-    }
+		case <-quit:
+			// stop the infinite loop when the quit channel receives a signal
+			return
+
+		}
+	}
 }

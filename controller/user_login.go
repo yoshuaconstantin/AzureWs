@@ -2,6 +2,7 @@ package controller
 
 import (
 	jwttoken "AzureWS/JWTTOKEN"
+	Aunth "AzureWS/globalvariable/authenticator"
 	"AzureWS/module"
 	"AzureWS/schemas/models"
 	"AzureWS/schemas/request"
@@ -16,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux" // digunakan untuk mendapatkan parameter dari router
-	_ "github.com/lib/pq"    // postgres golang driver
+	"github.com/gorilla/mux" 
+	_ "github.com/lib/pq"    
 )
 
 var ipMap = make(map[string]int)
@@ -42,54 +43,34 @@ func resetIP(ipAddr string) {
 	delete(blockedIPs, ipAddr)
 }
 
-func InsrtNewUser(w http.ResponseWriter, r *http.Request) {
+func CreateNewAccount(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// create an empty user of type models.User
-	// kita buat empty User dengan tipe models.User
 	var user models.UserModel
 
-	// decode data json request ke User
 	err := json.NewDecoder(r.Body).Decode(&user)
 
 	if err != nil {
 		log.Fatalf("\nCREATE NEW USER - Cannot get request body : %v\n", err)
 	}
 
-	// panggil modelsnya lalu insert User
-	InsertAndGetJwt, errInsert := module.AddUserToDB(user)
+	GetTokenAndJwt, errInsert := module.AddUserToDB(user)
 
 	if errInsert != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusConflict
-		response.Message = "Username already registered"
-
-		// kirim response
-		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, errInsert.Error(), http.StatusInternalServerError)
 		return
-	} else {
-		if InsertAndGetJwt == "" {
-			var response response.GeneralResponseNoData
-			response.Status = http.StatusConflict
-			response.Message = "Username already registered"
-
-			// kirim response
-			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(response)
-			return
-		} else {
-			var response response.ResponseUserLoginWithJWT
-			response.Status = http.StatusOK
-			response.Message = "Data user baru telah di tambahkan"
-			response.JwtToken = InsertAndGetJwt
-
-			// kirim response
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(response)
-		}
 	}
+
+	var response response.ResponseUserLoginWithJWT
+	response.Status = http.StatusOK
+	response.Message = "Data user baru telah di tambahkan"
+	response.JwtToken = GetTokenAndJwt.JWT
+	response.Token = GetTokenAndJwt.Token
+
+	// kirim response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
 
 // AmbilUser mengambil single data dengan parameter id
@@ -120,7 +101,7 @@ func GetSnglUsr(w http.ResponseWriter, r *http.Request) {
 }
 
 // Login user
-func LoginUser(w http.ResponseWriter, r *http.Request) {
+func LoginAccount(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -147,12 +128,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	var loginData request.RequestLoginData
 	err := json.NewDecoder(r.Body).Decode(&loginData)
 	if err != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusBadRequest
-		response.Message = "Invalid request body"
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
@@ -162,12 +138,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	storedPassword, errStrdPswd := validation.ValidateGetStoredPassword(username)
 
 	if errStrdPswd != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusBadRequest
-		response.Message = fmt.Sprintf("\nLOGIN USER - Error: %s\n", errStrdPswd.Error())
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, errStrdPswd.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -180,12 +151,9 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 		attemptsLeft := 5 - ipMap[ipAddr]
 
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusBadRequest
-		response.Message = fmt.Sprintf("Password not match. You have %d attempts left.\n", attemptsLeft)
+		errorMsg := fmt.Sprintf("Password not match. You have %d attempts left", attemptsLeft)
 
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, errorMsg, http.StatusConflict)
 		return
 	}
 
@@ -199,12 +167,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 				GetUserID, errGetUuid := validation.ValidateTokenGetUuid(token)
 
 				if errGetUuid != nil {
-					var response response.GeneralResponseNoData
-					response.Status = http.StatusUnauthorized
-					response.Message = errGetUuid.Error()
-
-					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).Encode(response)
+					http.Error(w, errGetUuid.Error(), http.StatusUnauthorized)
 					return
 				}
 
@@ -212,35 +175,19 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 				GenerateJwtToken, errGenerate := jwttoken.GenerateToken(GetUserID)
 
 				if errGenerate != nil {
-					var response response.GeneralResponseNoData
-					response.Status = http.StatusInternalServerError
-					response.Message = errGenerate.Error()
-
-					w.WriteHeader(http.StatusInternalServerError)
-					json.NewEncoder(w).Encode(response)
+					http.Error(w, errGenerate.Error(), http.StatusInternalServerError)
 					return
 				}
 
 				ReNewSession, errAddSession := session.ReNewSessionLogin(GetUserID)
 
 				if errAddSession != nil {
-
-					var response response.GeneralResponseNoData
-					response.Status = http.StatusInternalServerError
-					response.Message = errAddSession.Error()
-
-					w.WriteHeader(http.StatusInternalServerError)
-					json.NewEncoder(w).Encode(response)
+					http.Error(w, errAddSession.Error(), http.StatusInternalServerError)
 					return
 				}
 
 				if !ReNewSession {
-					var response response.GeneralResponseNoData
-					response.Status = http.StatusUnauthorized
-					response.Message = "Contact Dev to fix this"
-
-					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).Encode(response)
+					http.Error(w, "Failed to refresh session", http.StatusInternalServerError)
 					return
 				}
 
@@ -330,222 +277,67 @@ func GetAllUsr(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update User Password func
-func UpdtUserPsswd(w http.ResponseWriter, r *http.Request) {
+func UpdateAccountPassword(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	authHeader := r.Header.Get("Authorization")
-
-	if authHeader == "" {
-		// If the authorization header is empty, return an error
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusBadRequest
-		response.Message = "Missing authorization header"
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
 
 	var updatePswdModel request.RequestChangePasswordData
 
 	err := json.NewDecoder(r.Body).Decode(&updatePswdModel)
 
 	if err != nil {
-		res := response.GeneralResponseNoData{
-			Message: "Cannot get request body",
-			Status:  http.StatusBadRequest,
-		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+		
+	}
 
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(res)
+	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, updatePswdModel.Token)
+
+	if errAunth != nil {
+		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
 
-	userId, errGetUuid := validation.ValidateTokenGetUuid(updatePswdModel.Token)
-
-	if errGetUuid != nil {
-		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
-
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusInternalServerError
-		response.Message = "Error retrieving UserId"
-
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-
-		return
-	}
-	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
-
-	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
-
-	if erroCheckJWt != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusUnauthorized
-		response.Message = erroCheckJWt.Error()
-
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	if !CheckJwtTokenValidation {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusUnauthorized
-		response.Message = "Unauthorized user"
-
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
-
-	if errSessionCheck != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusForbidden
-		response.Message = errSessionCheck.Error()
-
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	if !SessionValidation {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusUnauthorized
-		response.Message = "Session Expired"
-
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	_, errUpdatePswd := module.UpdatePasswordUserFromDB(updatePswdModel.Token, updatePswdModel.Password)
+	_, errUpdatePswd := module.UpdatePasswordUserFromDB(GetUserIdAunth, updatePswdModel.Password)
 
 	if errUpdatePswd != nil {
-		res := response.GeneralResponseNoData{
-			Message: errUpdatePswd.Error(),
-			Status:  http.StatusOK,
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(res)
+		http.Error(w, errUpdatePswd.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	res := response.GeneralResponseNoData{
-		Message: "Update password succes",
-		Status:  http.StatusOK,
-	}
+	var response response.GeneralResponseNoData
+	response.Message = "Succes"
+	response.Status = http.StatusOK
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
+	json.NewEncoder(w).Encode(response)
 }
 
 // Delete User func
-func DltUsr(w http.ResponseWriter, r *http.Request) {
+func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	authHeader := r.Header.Get("Authorization")
-
-	if authHeader == "" {
-		// If the authorization header is empty, return an error
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusBadRequest
-		response.Message = "Missing authorization header"
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
 
 	var tokenModel request.RequestTokenData
 
 	err := json.NewDecoder(r.Body).Decode(&tokenModel)
 
 	if err != nil {
-		res := response.GeneralResponseNoData{
-			Message: "Cannot get request body",
-			Status:  http.StatusBadRequest,
-		}
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(res)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	userId, errGetUuid := validation.ValidateTokenGetUuid(tokenModel.Token)
+	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenModel.Token)
 
-	if errGetUuid != nil {
-		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
-
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusInternalServerError
-		response.Message = "Error retrieving UserId"
-
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
-
-	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
-
-	if erroCheckJWt != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusUnauthorized
-		response.Message = erroCheckJWt.Error()
-
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
+	if errAunth != nil {
+		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
 
-	if !CheckJwtTokenValidation {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusUnauthorized
-		response.Message = "Unauthorized user"
-
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
-
-	if errSessionCheck != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusForbidden
-		response.Message = errSessionCheck.Error()
-
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	if !SessionValidation {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusUnauthorized
-		response.Message = "Session Expired"
-
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	_, errDeleteUser := module.RemoveUserDB(tokenModel.Token)
+	_, errDeleteUser := module.RemoveUserDB(GetUserIdAunth)
 
 	if errDeleteUser != nil {
-
-		var response response.GeneralResponseNoData
-		response.Message = "Delete user operation failed"
-		response.Status = http.StatusBadRequest
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, errDeleteUser.Error(), http.StatusInternalServerError)
 		return
 
 	}
@@ -559,116 +351,35 @@ func DltUsr(w http.ResponseWriter, r *http.Request) {
 }
 
 // Logout User func
-func LgoutUsr(w http.ResponseWriter, r *http.Request) {
+func LogoutAccount(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	authHeader := r.Header.Get("Authorization")
-
-	if authHeader == "" {
-		// If the authorization header is empty, return an error
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusBadRequest
-		response.Message = "Missing authorization header"
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
 
 	var tokenModel request.RequestTokenData
 
 	err := json.NewDecoder(r.Body).Decode(&tokenModel)
 
 	if err != nil {
-		res := response.GeneralResponseNoData{
-			Message: "Cannot get request body",
-			Status:  http.StatusBadRequest,
-		}
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(res)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	userId, errGetUuid := validation.ValidateTokenGetUuid(tokenModel.Token)
+	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenModel.Token)
 
-	if errGetUuid != nil {
-		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
-
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusInternalServerError
-		response.Message = "Error retrieving UserId"
-
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
-
-	CheckJwtTokenValidation, erroCheckJWt := jwttoken.VerifyToken(tokenString)
-
-	if erroCheckJWt != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusUnauthorized
-		response.Message = erroCheckJWt.Error()
-
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
+	if errAunth != nil {
+		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
 
-	if !CheckJwtTokenValidation {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusUnauthorized
-		response.Message = "Unauthorized user"
-
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	SessionValidation, errSessionCheck := session.CheckSessionInside(userId)
-
-	if errSessionCheck != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusForbidden
-		response.Message = errSessionCheck.Error()
-
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	if !SessionValidation {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusUnauthorized
-		response.Message = "Session Expired"
-
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	logoutUser, errLogout := module.LogoutUser(userId)
+	logoutUser, errLogout := module.LogoutUser(GetUserIdAunth)
 
 	if errLogout != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusInternalServerError
-		response.Message = errLogout.Error()
-
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, errLogout.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if !logoutUser {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusInternalServerError
-		response.Message = "Error when trying to logout"
-
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, "Error when trying to logout", http.StatusInternalServerError)
 		return
 	}
 
@@ -685,64 +396,32 @@ func RefrshToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	authHeader := r.Header.Get("Authorization")
-
-	if authHeader == "" {
-		// If the authorization header is empty, return an error
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusBadRequest
-		response.Message = "Missing authorization header"
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
 	var tokenModel request.RequestTokenData
 
 	err := json.NewDecoder(r.Body).Decode(&tokenModel)
 
 	if err != nil {
-		res := response.GeneralResponseNoData{
-			Message: "Cannot get request body",
-			Status:  http.StatusBadRequest,
-		}
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(res)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	userId, errGetUuid := validation.ValidateTokenGetUuid(tokenModel.Token)
+	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenModel.Token)
 
-	if errGetUuid != nil {
-		log.Fatalf("Unable to retrieve UserId. %v", errGetUuid)
-
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusInternalServerError
-		response.Message = "Error retrieving UserId"
-
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
+	if errAunth != nil {
+		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
-	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
 
 	// Now check and refresh the token
-	RefreshJWT, errRefreshJWT := jwttoken.RefreshToken(tokenString, userId)
+	RefreshJWT, errRefreshJWT := jwttoken.RefreshToken(tokenModel.Token, GetUserIdAunth)
 
 	if errRefreshJWT != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusInternalServerError
-		response.Message = errRefreshJWT.Error()
-
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, errRefreshJWT.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var response response.ResponseUserLoginWithJWT
-	response.Message = "Logout Succes"
+	response.Message = "Token Refreshed"
 	response.Status = http.StatusOK
 	response.JwtToken = RefreshJWT
 
@@ -758,24 +437,14 @@ func TestGenerateJwt(w http.ResponseWriter, r *http.Request) {
 	var loginData request.RequestLoginData
 	err := json.NewDecoder(r.Body).Decode(&loginData)
 	if err != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusBadRequest
-		response.Message = "Invalid request body"
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	GenerateJwt, errGen := jwttoken.GenerateToken(loginData.Username)
 
 	if errGen != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusBadRequest
-		response.Message = "Invalid request body"
-
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 

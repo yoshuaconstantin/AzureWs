@@ -14,15 +14,15 @@ func Router() *mux.Router {
 	// User_Login API
 	// router.HandleFunc("/api/users", controller.GetAllUsr).Methods("GET", "OPTIONS")
 	// router.HandleFunc("/api/user/{id}", controller.GetSnglUsr).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/add_user", controller.InsrtNewUser).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/user", controller.UpdtUserPsswd).Methods("PUT", "OPTIONS")
-	router.HandleFunc("/api/user", controller.DltUsr).Methods("DELETE", "OPTIONS")
-	router.HandleFunc("/api/login", controller.LoginUser).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/logout", controller.LgoutUsr).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/add_user", controller.CreateNewAccount).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/user", controller.UpdateAccountPassword).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/api/user", controller.DeleteAccount).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/api/login", controller.LoginAccount).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/logout", controller.LogoutAccount).Methods("GET", "OPTIONS")
 
 	// Dashboards data using token and JWT
-	router.HandleFunc("/api/home/dashboards", controller.GetDshbrdDat).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/home/update/dashboard/data", controller.UpdtDshbrdDat).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/home/dashboards", controller.GetDashboardsData).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/home/update/dashboard/data", controller.UpdateDashboardsData).Methods("POST", "OPTIONS")
 
 	// User Profile using token and JWT
 	router.HandleFunc("/api/home/user/profile/image", controller.UploadImage).Methods("POST", "OPTIONS")
@@ -39,10 +39,10 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/verify", controller.TestVerifyJwt).Methods("GET", "OPTIONS")
 	
 	// Feedback user
-	router.HandleFunc("/api/home/user/feedback", controller.GetFdbckUsr).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/home/user/feedback", controller.InsrtFdbckUsr).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/home/user/feedback", controller.UpdtCmmtFdbckUsr).Methods("PUT", "OPTIONS")
-	router.HandleFunc("/api/home/user/feedback", controller.DelUsrFdbck).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/api/home/user/feedback", controller.GetAllFeedbackUsers).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/home/user/feedback", controller.InsertFeedbackUser).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/home/user/feedback", controller.UpdateCommentFeedbackUser).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/api/home/user/feedback", controller.DeletUserFeedback).Methods("DELETE", "OPTIONS")
 
 	// Community chat using websocket
 	router.HandleFunc("/community_chat", websocketstruct.CommunityChat)

@@ -5,9 +5,10 @@ import (
 )
 
 type ResponseUserLoginWithJWT struct {
-	Message  string `json:"message,omitempty"`
-	Status   int    `json:"status,omitempty"`
-	JwtToken string `json:"jtwToken,omitempty"`
+	Message		string `json:"message,omitempty"`
+	Status		int    `json:"status,omitempty"`
+	JwtToken	string `json:"jtwToken"`
+	Token 		string `json:"token"`
 }
 
 type ResponseUserLogin struct {

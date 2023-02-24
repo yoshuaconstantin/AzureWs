@@ -2,13 +2,13 @@ package module
 
 import (
 	"AzureWS/config"
+	Gv "AzureWS/globalvariable/variable"
 	"AzureWS/schemas/models"
 	"AzureWS/schemas/request"
 	"AzureWS/schemas/response"
 	"database/sql"
 	"fmt"
 	"log"
-	Gv "AzureWS/globalvariable"
 
 	_ "github.com/lib/pq" // postgres golang driver
 )
@@ -99,8 +99,7 @@ func InsertCommunityPostToDB(userId string, postDataModels models.PostDataModels
 
 	sqlStatement := `INSERT INTO community_post (user_id, nickname, post_message, nation, image_url, created_date, is_edited) VALUES ($1, $2, $3, $4, $5, $6, 'false')`
 
-
-	_, err := db.Exec(sqlStatement, userId, postDataModels.Nickname, postDataModels.PostMessage, postDataModels.Nation, postDataModels.ImageUrl, Gv.FormatedTime)
+	_, err := db.Exec(sqlStatement, userId, postDataModels.Nickname, postDataModels.PostMessage, postDataModels.Nation, postDataModels.ImageUrl, Gv.FormatedTimeiso8601)
 
 	if err != nil {
 
@@ -119,7 +118,7 @@ func UpdateCommunityPostFromDB(userId string, updatePostData request.UpdatePostD
 
 	sqlStatement := `UPDATE community_post SET post_message =$1, created_date =$2, is_edited = 'true' WHERE user_id = $3 AND id = $4`
 
-	_, err := db.Exec(sqlStatement, updatePostData.PostMessage, Gv.FormatedTime, userId, updatePostData.PostId)
+	_, err := db.Exec(sqlStatement, updatePostData.PostMessage, Gv.FormatedTimeiso8601, userId, updatePostData.PostId)
 
 	if err != nil {
 
@@ -251,7 +250,7 @@ func InsertCommentCommunityPostToDB(userId string, commentData request.CommentPo
 
 	sqlStatement := `INSERT INTO community_post_comment (user_id, post_id, nickname, comment_body, time_comment, is_edited) VALUES ($1, $2, $3, $4, $5, 'false')`
 
-	_, err := db.Exec(sqlStatement, userId, commentData.PostId, commentData.Nickname, commentData.CommentBody, Gv.FormatedTime)
+	_, err := db.Exec(sqlStatement, userId, commentData.PostId, commentData.Nickname, commentData.CommentBody, Gv.FormatedTimeiso8601)
 
 	if err != nil {
 
@@ -268,7 +267,7 @@ func UpdateCommentCommunityPostFromDB(userId string, updateCommentCommunityPost 
 
 	sqlStatement := `UPDATE community_post_comment SET comment_body =$1, time_comment =$2, is_edited = 'true' WHERE user_id = $3 AND post_id = $4 AND id = $5`
 
-	_, err := db.Exec(sqlStatement, updateCommentCommunityPost.CommentBody, Gv.FormatedTime, userId, updateCommentCommunityPost.PostId, updateCommentCommunityPost.CommentId)
+	_, err := db.Exec(sqlStatement, updateCommentCommunityPost.CommentBody, Gv.FormatedTimeiso8601, userId, updateCommentCommunityPost.PostId, updateCommentCommunityPost.CommentId)
 
 	if err != nil {
 
@@ -299,34 +298,34 @@ func DeleteCommentCommunityPostFromDB(userId string, deleteCommentData request.D
 
 // Like Community Post Area
 func InsertLikeCommunityPostToDB(userId string, likeData request.LikePost) (bool, error) {
-    db := config.CreateConnection()
-    defer db.Close()
+	db := config.CreateConnection()
+	defer db.Close()
 
-    // Check if like already exists for user and post
-    var count int
-    sqlStatement := `SELECT COUNT(*) FROM community_post_like WHERE user_id = $1 AND post_id = $2`
-    err := db.QueryRow(sqlStatement, userId, likeData.PostId).Scan(&count)
-    if err != nil {
-        return false, fmt.Errorf("failed to check if like already exists: %v", err)
-    }
+	// Check if like already exists for user and post
+	var count int
+	sqlStatement := `SELECT COUNT(*) FROM community_post_like WHERE user_id = $1 AND post_id = $2`
+	err := db.QueryRow(sqlStatement, userId, likeData.PostId).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if like already exists: %v", err)
+	}
 
-    if count > 0 {
-        // Like already exists, delete it
-        sqlStatement := `DELETE FROM community_post_like WHERE user_id = $1 AND post_id = $2`
-        _, err := db.Exec(sqlStatement, userId, likeData.PostId)
-        if err != nil {
-            return false, fmt.Errorf("failed to delete existing like data: %v", err)
-        }
-    } else {
-        // Like doesn't exist, insert new like data
-        sqlStatement := `INSERT INTO community_post_like (user_id, post_id, is_like) VALUES ($1, $2, $3)`
-        _, err := db.Exec(sqlStatement, userId, likeData.PostId, likeData.IsLike)
-        if err != nil {
-            return false, fmt.Errorf("failed to insert new like data: %v", err)
-        }
-    }
+	if count > 0 {
+		// Like already exists, delete it
+		sqlStatement := `DELETE FROM community_post_like WHERE user_id = $1 AND post_id = $2`
+		_, err := db.Exec(sqlStatement, userId, likeData.PostId)
+		if err != nil {
+			return false, fmt.Errorf("failed to delete existing like data: %v", err)
+		}
+	} else {
+		// Like doesn't exist, insert new like data
+		sqlStatement := `INSERT INTO community_post_like (user_id, post_id, is_like) VALUES ($1, $2, $3)`
+		_, err := db.Exec(sqlStatement, userId, likeData.PostId, likeData.IsLike)
+		if err != nil {
+			return false, fmt.Errorf("failed to insert new like data: %v", err)
+		}
+	}
 
-    return true, nil
+	return true, nil
 }
 
 //End Like Community Post Area

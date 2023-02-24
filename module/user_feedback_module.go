@@ -2,9 +2,9 @@ package module
 
 import (
 	"AzureWS/config"
+	Gv "AzureWS/globalvariable/variable"
 	"AzureWS/schemas/models"
-	Gv "AzureWS/globalvariable"
-
+	"database/sql"
 )
 
 // Insert Feedback to database using non-model data
@@ -15,7 +15,7 @@ func InsertFeedbackUserToDB(UserId, Nickname, Comment string) (bool, error) {
 
 	sqlStatement := `INSERT INTO user_feedback (user_id, nickname, comment, timestamp, is_edited) VALUES ($1, $2, $3, $4, 'false')`
 
-	_, err := db.Exec(sqlStatement, UserId, Nickname, Comment, Gv.FormatedTime)
+	_, err := db.Exec(sqlStatement, UserId, Nickname, Comment, Gv.FormatedTimeiso8601)
 
 	if err != nil {
 		return false, err
@@ -25,11 +25,11 @@ func InsertFeedbackUserToDB(UserId, Nickname, Comment string) (bool, error) {
 }
 
 // Fetch All feedback users with pagination offset and 20 for the limit
-func GetFeedBackUserDataFromDB(offset int) ([]models.ReturnFeedBackUserModel, error) {
+func GetFeedBackUserDataFromDB(UserId string,offset int) ([]models.ReturnFeedBackUserModel, error) {
 	db := config.CreateConnection()
 	defer db.Close()
 
-	query := "SELECT id, nickname, comment, timestamp, is_edited FROM user_feedback LIMIT 20 OFFSET $1"
+	query := "SELECT id, nickname, comment, timestamp, is_edited FROM user_feedback LIMIT 10 OFFSET $1"
 	rows, err := db.Query(query, offset)
 	if err != nil {
 		return nil, err
@@ -41,6 +41,24 @@ func GetFeedBackUserDataFromDB(offset int) ([]models.ReturnFeedBackUserModel, er
 		var feedback models.ReturnFeedBackUserModel
 		if err := rows.Scan(&feedback.Id, &feedback.Nickname, &feedback.Comment, &feedback.Timestamp, &feedback.IsEdited); err != nil {
 			return nil, err
+		}
+
+		sqlStatement := `SELECT user_id FROM user_feedback where user_id = $1`
+
+		row := db.QueryRow(sqlStatement, UserId)
+
+		var userID string
+
+		if err := row.Scan(&userID); err != nil {
+			if err == sql.ErrNoRows {
+				// User ID not found
+				feedback.OwnFeedback = "false"
+			} else {
+				return nil, err
+			}
+		} else {
+			// User ID found
+			feedback.OwnFeedback = "true"
 		}
 
 		feedbacks = append(feedbacks, feedback)
@@ -59,9 +77,9 @@ func EditFeedBackUserFromDB(id int, comment, userId string) (bool, error) {
 
 	defer db.Close()
 
-	sqlStatement := `UPDATE user_feedback SET comment = $1, timestamp = $2 is_edit = 'true' WHERE id = $3 AND user_id = $4`
+	sqlStatement := `UPDATE user_feedback SET comment = $1, timestamp = $2, is_edited = 'true' WHERE id = $3 AND user_id = $4`
 
-	_, err := db.Exec(sqlStatement, id, comment, Gv.FormatedTime, userId)
+	_, err := db.Exec(sqlStatement, comment, Gv.FormatedTimeiso8601, id, userId)
 
 	if err != nil {
 		return false, err
