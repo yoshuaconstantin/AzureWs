@@ -1,14 +1,6 @@
 package controller
 
 import (
-	jwttoken "AzureWS/JWTTOKEN"
-	Aunth "AzureWS/globalvariable/authenticator"
-	"AzureWS/module"
-	"AzureWS/schemas/models"
-	"AzureWS/schemas/request"
-	"AzureWS/schemas/response"
-	"AzureWS/session"
-	"AzureWS/validation"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -17,8 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux" 
-	_ "github.com/lib/pq"    
+	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
+
+	jwttoken "AzureWS/JWTTOKEN"
+	Aunth "AzureWS/globalvariable/authenticator"
+	"AzureWS/module"
+	"AzureWS/schemas/models"
+	"AzureWS/schemas/request"
+	"AzureWS/schemas/response"
+	"AzureWS/session"
+	"AzureWS/validation"
 )
 
 var ipMap = make(map[string]int)
@@ -55,7 +56,7 @@ func CreateNewAccount(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("\nCREATE NEW USER - Cannot get request body : %v\n", err)
 	}
 
-	GetTokenAndJwt, errInsert := module.AddUserToDB(user)
+	GetTokenAndJwt, errInsert := module.CreateAccountToDB(user)
 
 	if errInsert != nil {
 		http.Error(w, errInsert.Error(), http.StatusInternalServerError)
@@ -157,93 +158,61 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if PasswordValidation {
-
-		token, err := validation.Validate(username, storedPassword)
-
-		if err == nil {
-			if token != "" {
-
-				GetUserID, errGetUuid := validation.ValidateTokenGetUuid(token)
-
-				if errGetUuid != nil {
-					http.Error(w, errGetUuid.Error(), http.StatusUnauthorized)
-					return
-				}
-
-				// Generate JWT Token after Succesfully passed the aunth system
-				GenerateJwtToken, errGenerate := jwttoken.GenerateToken(GetUserID)
-
-				if errGenerate != nil {
-					http.Error(w, errGenerate.Error(), http.StatusInternalServerError)
-					return
-				}
-
-				ReNewSession, errAddSession := session.ReNewSessionLogin(GetUserID)
-
-				if errAddSession != nil {
-					http.Error(w, errAddSession.Error(), http.StatusInternalServerError)
-					return
-				}
-
-				if !ReNewSession {
-					http.Error(w, "Failed to refresh session", http.StatusInternalServerError)
-					return
-				}
-
-				fmt.Printf("\nPASSWORD VALIDATION - User Token = %v\n", token)
-
-				ipMap[ipAddr] = 0
-				// Send Token and JWT token
-				var response response.ResponseUserTokenAndJwt
-				response.Status = http.StatusOK
-				response.Message = "Success"
-				response.Token = token
-				response.JwtToken = GenerateJwtToken
-
-				w.WriteHeader(http.StatusOK)
-
-				json.NewEncoder(w).Encode(response)
-				return
-
-			} else {
-
-				// kirim respon 500 kalau token kosong
-				var response response.GeneralResponseNoData
-				response.Status = http.StatusInternalServerError
-				response.Message = "No token"
-
-				w.WriteHeader(http.StatusInternalServerError)
-
-				json.NewEncoder(w).Encode(response)
-				return
-
-			}
-		} else {
-
-			var response response.GeneralResponseNoData
-			response.Status = http.StatusBadRequest
-			response.Message = "User not found "
-
-			w.WriteHeader(http.StatusBadRequest)
-
-			json.NewEncoder(w).Encode(response)
-			return
-		}
-	} else {
-
+	if !PasswordValidation {
 		ipMap[ipAddr]++
 
 		attemptsLeft := 5 - ipMap[ipAddr]
 
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusBadRequest
-		response.Message = fmt.Sprintf("Password validating failed. You have %d attempts left.\n", attemptsLeft)
+		errorMsg := fmt.Sprintf("Password not match. You have %d attempts left", attemptsLeft)
 
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
+		http.Error(w, errorMsg, http.StatusBadRequest)
 		return
 	}
+
+	token, errToken := validation.ValidateGenerateNewToken(username, password)
+
+	if errToken != nil {
+		http.Error(w, errToken.Error(), http.StatusUnauthorized)
+	}
+
+	GetUserID, errGetUuid := validation.ValidateTokenGetUuid(token)
+
+	if errGetUuid != nil {
+		http.Error(w, errGetUuid.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// Generate JWT Token after Succesfully passed the aunth system
+	GenerateJwtToken, errGenerate := jwttoken.GenerateToken(GetUserID)
+
+	if errGenerate != nil {
+		http.Error(w, errGenerate.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	ReNewSession, errAddSession := session.ReNewSessionLogin(GetUserID)
+
+	if errAddSession != nil {
+		http.Error(w, errAddSession.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if !ReNewSession {
+		http.Error(w, "Failed to refresh session", http.StatusInternalServerError)
+		return
+	}
+
+	ipMap[ipAddr] = 0
+
+	var response response.ResponseUserTokenAndJwt
+	response.Status = http.StatusOK
+	response.Message = "Success"
+	response.Token = token
+	response.JwtToken = GenerateJwtToken
+
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(response)
 }
 
 func GetAllUsr(w http.ResponseWriter, r *http.Request) {
@@ -288,7 +257,7 @@ func UpdateAccountPassword(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-		
+
 	}
 
 	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, updatePswdModel.Token)
@@ -298,7 +267,7 @@ func UpdateAccountPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, errUpdatePswd := module.UpdatePasswordUserFromDB(GetUserIdAunth, updatePswdModel.Password)
+	_, errUpdatePswd := module.UpdatePasswordAccountFromDB(GetUserIdAunth, updatePswdModel.Password)
 
 	if errUpdatePswd != nil {
 		http.Error(w, errUpdatePswd.Error(), http.StatusInternalServerError)
@@ -334,7 +303,7 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, errDeleteUser := module.RemoveUserDB(GetUserIdAunth)
+	_, errDeleteUser := module.RemoveAccountFromDB(GetUserIdAunth)
 
 	if errDeleteUser != nil {
 		http.Error(w, errDeleteUser.Error(), http.StatusInternalServerError)
@@ -371,7 +340,7 @@ func LogoutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logoutUser, errLogout := module.LogoutUser(GetUserIdAunth)
+	logoutUser, errLogout := module.LogoutAccountFromDB(GetUserIdAunth)
 
 	if errLogout != nil {
 		http.Error(w, errLogout.Error(), http.StatusInternalServerError)

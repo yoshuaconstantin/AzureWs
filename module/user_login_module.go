@@ -1,26 +1,26 @@
 package module
 
 import (
-	jwttoken "AzureWS/JWTTOKEN"
-	"AzureWS/config"
-	"AzureWS/schemas/models"
-	"AzureWS/session"
-	"AzureWS/validation"
 	"crypto/md5"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/lib/pq" // postgres golang driver
+	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
+
+	jwttoken "AzureWS/JWTTOKEN"
+	"AzureWS/config"
+	Ct "AzureWS/globalvariable/constant"
+	Gv "AzureWS/globalvariable/variable"
+	"AzureWS/schemas/models"
+	"AzureWS/session"
+	"AzureWS/validation"
 )
 
-// jika return datanya ada yg null, silahkan pake NullString, contohnya dibawah
-// Var       config.NullString `json:"var"`
-
-func AddUserToDB(user models.UserModel) (*models.TokenWithJwtModel, error) {
+func CreateAccountToDB(user models.UserModel) (*models.TokenWithJwtModel, error) {
 	var returnData models.TokenWithJwtModel
 
 	db := config.CreateConnection()
@@ -45,9 +45,6 @@ func AddUserToDB(user models.UserModel) (*models.TokenWithJwtModel, error) {
 		// id yang dimasukkan akan disimpan di id ini
 		var id int64
 
-		//membuat timestamp waktu sekarang tanpa format
-		now := time.Now()
-
 		//Generate UUID untuk userID menggunakan UUID generator
 		userID, errUuid := uuid.NewRandom()
 		if errUuid != nil {
@@ -64,8 +61,7 @@ func AddUserToDB(user models.UserModel) (*models.TokenWithJwtModel, error) {
 			return nil, errhashed
 		}
 
-		//Generate Token menggunakan username, password, timestamp.now
-		sum := md5.Sum([]byte(user.Password + user.Username + now.String()))
+		sum := md5.Sum([]byte(user.Username + user.Password + Gv.CurrentTime.String()))
 		tokenGenerated := hex.EncodeToString(sum[:])
 
 		createNewSession, errCreateNewSession := session.CreateNewSession(fixedUserId)
@@ -196,7 +192,7 @@ func GetSingleUser(id int64) (models.UserModel, error) {
 }
 
 // update user in the DB
-func UpdatePasswordUserFromDB(userId, password string) (int64, error) {
+func UpdatePasswordAccountFromDB(userId, password string) (int64, error) {
 
 	db := config.CreateConnection()
 
@@ -227,7 +223,7 @@ Usage link *https://stackoverflow.com/questions/129265/cascade-delete-just-once*
 
 And implement with your own style
 */
-func RemoveUserDB(userId string) (string, error) {
+func RemoveAccountFromDB(userId string) (string, error) {
 
 	db := config.CreateConnection()
 
@@ -246,7 +242,7 @@ func RemoveUserDB(userId string) (string, error) {
 	_, errDelDshbrds := db.Exec(sqlStatementDshbrds, userId)
 	_, errDelUsrFdbck := db.Exec(sqlStatementUsrFdbck, userId)
 	_, errDelUsrPrfl := db.Exec(sqlStatementUsrPrfl, userId)
-	_, errDelCmnyPst  := db.Exec(sqlStatementCmnyPst, userId)
+	_, errDelCmnyPst := db.Exec(sqlStatementCmnyPst, userId)
 	_, errDelCmnyCmnt := db.Exec(sqlStatementCmnyCmnt, userId)
 	_, errDelCmnyLike := db.Exec(sqlStatementCmnyLike, userId)
 
@@ -296,7 +292,7 @@ func RemoveUserDB(userId string) (string, error) {
 }
 
 // Logout user and delete the session
-func LogoutUser(userId string) (bool, error) {
+func LogoutAccountFromDB(userId string) (bool, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()
@@ -311,4 +307,56 @@ func LogoutUser(userId string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func InsertTesting(password string) error {
+	db := config.CreateConnection()
+
+	defer db.Close()
+
+	hashedPassword, errhashed := bcrypt.GenerateFromPassword(append(Ct.Salt, []byte(password)...), Ct.BcryptCost)
+
+	if errhashed != nil {
+		fmt.Printf("error generating password hash: %v", errhashed)
+	}
+
+	sqlStatement := `INSERT INTO testing (testencrypt) VALUES ($1)`
+
+	_, err := db.Exec(sqlStatement, hashedPassword)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CheckTesting(password string) (bool, error) {
+	db := config.CreateConnection()
+
+	// Close the connection at the end of the process.
+	defer db.Close()
+
+	// Create a SQL query to retrieve the token based on the username and password.
+	sqlStatement := `SELECT testencrypt FROM testing WHERE id = 3`
+
+	// Execute the SQL statement.
+	var pswd sql.NullString
+
+	err := db.QueryRow(sqlStatement).Scan(&pswd)
+
+	if err == sql.ErrNoRows {
+		return false, fmt.Errorf("%s", "Password not found")
+	}
+
+	if err != nil {
+		log.Fatalf("Error executing the SQL statement: %v", err)
+		return false, err
+	}
+
+	if err != nil {
+		fmt.Printf("error generating password hash for validation: %v", err)
+	}
+
+	return bcrypt.CompareHashAndPassword([]byte(pswd.String), append(Ct.Salt, []byte(password)...)) == nil, nil
 }

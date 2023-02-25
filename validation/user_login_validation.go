@@ -6,13 +6,16 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
-	"AzureWS/config"
 
 	_ "github.com/lib/pq"
-	//"golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/bcrypt"
+
+	"AzureWS/config"
+	Gv "AzureWS/globalvariable/variable"
+	Ct "AzureWS/globalvariable/constant"
+
 )
 
-// Validate users login to get token
 func Validate(username, password string) (string, error) {
 	// Connect to the database.
 	db := config.CreateConnection()
@@ -43,6 +46,29 @@ func Validate(username, password string) (string, error) {
 	} else {
 		return "", nil
 	}
+}
+
+func ValidateGenerateNewToken(username, password string) (string, error) {
+	// Connect to the database.
+	db := config.CreateConnection()
+
+	// Close the connection at the end of the process.
+	defer db.Close()
+
+	// Create a SQL query to retrieve the token based on the username and password.
+	sqlStatement := `UPDATE user_login SET token = $1 WHERE username = $2`
+
+	
+	sum := md5.Sum([]byte(password + username + Gv.CurrentTime.String()))
+	tokenGenerated := hex.EncodeToString(sum[:])
+
+	_, errExec := db.Exec(sqlStatement, tokenGenerated, username)
+
+	if errExec != nil {
+		return "", errExec
+	}
+
+	return tokenGenerated, nil
 }
 
 // Validate users token to get user id
@@ -143,42 +169,15 @@ func ValidateCreateNewUsername(username string) (bool, error) {
 
 // Validate users password before login into account
 func ValidateUserPassword(enteredPassword string, storedPassword string) (bool, error) {
-	// Hash the entered password using the same salt as used during registration
-	// Salt location will be secured and salt are diff on each user.
-	//salt := []byte("AzureKey")
-
-	// hashedPassword, err := bcrypt.GenerateFromPassword([]byte(enteredPassword), 14)
-
-	// if err != nil {
-	// 	return false, err
-	// }
-
-	// Compare the hashed password from the validation with the stored hashed password
-	//return bcrypt.CompareHashAndPassword(hashedPassword, []byte(storedPassword)) == nil, nil
-
-	//as for now use MD5, later will use bcrypt
-	passwordMd5 := md5.Sum([]byte(enteredPassword))
-	passwordMd5String := hex.EncodeToString(passwordMd5[:])
-
-	if passwordMd5String == storedPassword {
-		return true, nil
-	} else {
-		return false, fmt.Errorf("%s", "Password didnt match")
-	}
+	return bcrypt.CompareHashAndPassword([]byte(storedPassword), append(Ct.Salt, []byte(enteredPassword)...)) == nil, nil
 }
 
 // Validate user password to get encrypted password
 func ValidatePasswordToEncrypt(password string) (string, error) {
-	// hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	hashedPassword, errhashed := bcrypt.GenerateFromPassword(append(Ct.Salt, []byte(password)...), Ct.BcryptCost)
 
-	// if err != nil {
-	// 	return "", err
-	// }
-
-	//as for now use MD5, later will use bcrypt
-
-	passwordMd5 := md5.Sum([]byte(password))
-	passwordMd5String := hex.EncodeToString(passwordMd5[:])
-
-	return passwordMd5String, nil
+	if errhashed != nil {
+		fmt.Printf("error generating password hash: %v", errhashed)
+	}
+	return string(hashedPassword), nil
 }
