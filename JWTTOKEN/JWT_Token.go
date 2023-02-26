@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang-jwt/jwt"
 
+	"AzureWS/session"
 )
 
 type Claims struct {
@@ -48,7 +49,7 @@ func VerifyToken(tokenString string) (bool, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
 		// Make sure the signing method is HMAC
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return false, fmt.Errorf("%s %v","Unexpected signing method: ", token.Header["alg"])
+			return false, fmt.Errorf("%s %v", "Unexpected signing method: ", token.Header["alg"])
 		}
 
 		// Return the secret key
@@ -68,7 +69,7 @@ func VerifyToken(tokenString string) (bool, error) {
 }
 
 // Refresh JWT and return the latest token
-func RefreshToken(tokenString, userId string) (string, error){
+func ReNewJWTandSession(tokenString, userId string) (string, error) {
 	verifyToken, errVerify := VerifyToken(tokenString)
 
 	if errVerify != nil {
@@ -76,13 +77,19 @@ func RefreshToken(tokenString, userId string) (string, error){
 	}
 
 	if !verifyToken {
-		return "", fmt.Errorf("%s","Unauthorized User")
+		return "", fmt.Errorf("%s", "Unauthorized User")
 	}
 
 	generateNewToken, errGenerateToken := GenerateToken(userId)
 
 	if errGenerateToken != nil {
 		return "", errGenerateToken
+	}
+
+	_, errS := session.ReNewSessionLogin(userId)
+
+	if errS != nil {
+		return "", errS
 	}
 
 	return generateNewToken, nil

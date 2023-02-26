@@ -1,8 +1,6 @@
 package session
 
 import (
-	"AzureWS/config"
-	Gv "AzureWS/globalvariable/variable"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
@@ -11,6 +9,9 @@ import (
 
 	_ "github.com/lib/pq"
 	//"golang.org/x/crypto/bcrypt"
+
+	"AzureWS/config"
+	Gv "AzureWS/globalvariable/variable"
 )
 
 // Re new the expiration date and is active whenever user login
@@ -22,10 +23,16 @@ func ReNewSessionLogin(userId string) (bool, error) {
 	defer db.Close()
 
 	// Create a SQL query to update the expired date and is_active flag for the session.
-	sqlStatement := `UPDATE user_session SET expired = $1, is_active = 'true' WHERE user_id = $2`
+	sqlStatement := `UPDATE user_session SET expired = $1, is_active = 'true', session_id =$2 WHERE user_id = $3`
+
+	sessionID, errCreateSession := GenerateSessionID()
+	if errCreateSession != nil {
+		fmt.Println(" \nSESSION CREATE - Error generating session ID:\n", errCreateSession)
+
+	}
 
 	// Execute the SQL statement.
-	_, err := db.Exec(sqlStatement, Gv.ExpiryStrFormatted, userId)
+	_, err := db.Exec(sqlStatement, Gv.ExpiryStrFormatted, sessionID, userId)
 
 	// If there's an error in executing the SQL statement, return the error.
 	if err != nil {

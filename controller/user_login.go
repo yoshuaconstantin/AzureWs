@@ -382,7 +382,7 @@ func RefrshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Now check and refresh the token
-	RefreshJWT, errRefreshJWT := jwttoken.RefreshToken(tokenModel.Token, GetUserIdAunth)
+	RefreshJWTandSession, errRefreshJWT := jwttoken.ReNewJWTandSession(tokenModel.Token, GetUserIdAunth)
 
 	if errRefreshJWT != nil {
 		http.Error(w, errRefreshJWT.Error(), http.StatusInternalServerError)
@@ -392,7 +392,7 @@ func RefrshToken(w http.ResponseWriter, r *http.Request) {
 	var response response.ResponseUserLoginWithJWT
 	response.Message = "Token Refreshed"
 	response.Status = http.StatusOK
-	response.JwtToken = RefreshJWT
+	response.JwtToken = RefreshJWTandSession
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
