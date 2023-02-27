@@ -16,10 +16,6 @@ type RequestDeleteProfileImageData struct {
 	OldImageUrl string `json:"oldImgUrl"`
 }
 
-type RequestTokenOnlyData struct {
-	Token string `json:"token"`
-}
-
 type RequestInsertProfileData struct {
 	Token string `json:"token"`
 	Data  []struct {

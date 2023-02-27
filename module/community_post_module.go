@@ -1,16 +1,17 @@
 package module
 
 import (
-	"AzureWS/config"
-	Gv "AzureWS/globalvariable/variable"
-	"AzureWS/schemas/models"
-	"AzureWS/schemas/request"
-	"AzureWS/schemas/response"
 	"database/sql"
 	"fmt"
 	"log"
 
 	_ "github.com/lib/pq" // postgres golang driver
+
+	"AzureWS/config"
+	Gv "AzureWS/globalvariable/variable"
+	"AzureWS/schemas/models"
+	"AzureWS/schemas/request"
+	"AzureWS/schemas/response"
 )
 
 // Community Post Area
@@ -159,7 +160,7 @@ func DeleteCommunityPostFromDB(userId string, deletePostData request.DeletePostD
 //End Community Post Area
 
 // Comment Community Post Area
-func GetAllPreviewCommentCommunityPostFromDB(PostId string) ([]models.CommentDataModels, error) {
+func GetAllPreviewCommentCommunityPostFromDB(PostId int) ([]models.CommentDataModels, error) {
 	db := config.CreateConnection()
 
 	defer db.Close()

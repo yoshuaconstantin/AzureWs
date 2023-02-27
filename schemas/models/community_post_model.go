@@ -8,7 +8,7 @@ type PostDataModels struct {
 }
 
 type CommentDataModels struct {
-	Id				string `json:"id"`
+	Id				int `json:"id"`
 	PostId			int	   `json:"post_id"`
 	Nickname 		string `json:"nickname"`
 	CommentBody		string `json:"comment_body"`

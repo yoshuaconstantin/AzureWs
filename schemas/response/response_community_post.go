@@ -9,7 +9,7 @@ type ResponseGetCommunityPost struct {
 }
 
 type PostData struct{
-	Id			string `json:"id"`
+	Id			int `json:"id"`
 	OwnPost			string `json:"own_post"`
 	Nickname 		string `json:"nickname"`
 	PostMessage		string `json:"post_message"`
