@@ -16,14 +16,11 @@ func GetDashboardsData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	var token request.RequestToken
-	err := json.NewDecoder(r.Body).Decode(&token)
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+	queryParams := r.URL.Query()
 
-	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, token.Token)
+	tokenParam := queryParams.Get("token")
+
+	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenParam)
 
 	if errAunth != nil {
 		http.Error(w, errAunth.Error(), AunthStatus)

@@ -1,10 +1,10 @@
 package router
 
 import (
-	"github.com/gorilla/mux"
-
 	"AzureWS/controller"
 	"AzureWS/websocketstruct"
+
+	"github.com/gorilla/mux"
 )
 
 func Router() *mux.Router {
@@ -14,10 +14,10 @@ func Router() *mux.Router {
 	// User_Login API
 	// router.HandleFunc("/api/users", controller.GetAllUsr).Methods("GET", "OPTIONS")
 	// router.HandleFunc("/api/user/{id}", controller.GetSnglUsr).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/add_user", controller.CreateNewAccount).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/create-account", controller.CreateNewAccount).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/user", controller.UpdateAccountPassword).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/user", controller.DeleteAccount).Methods("DELETE", "OPTIONS")
-	router.HandleFunc("/api/login", controller.LoginAccount).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/login", controller.LoginAccount).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/logout", controller.LogoutAccount).Methods("GET", "OPTIONS")
 
 	// Dashboards data using token and JWT
@@ -32,7 +32,7 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/home/user/profile", controller.GetDataProfile).Methods("GET", "OPTIONS")
 
 	// JWT Stuff
-	router.HandleFunc("/api/token_refresh", controller.RefrshToken).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/token-refresh", controller.RefrshToken).Methods("GET", "OPTIONS")
 
 	// Testing JWT
 	router.HandleFunc("/api/generate", controller.TestGenerateJwt).Methods("GET", "OPTIONS")
@@ -55,7 +55,7 @@ func Router() *mux.Router {
 
 	router.HandleFunc("/api/community/post/like", controller.InsertNewLikeCommunityPost).Methods("POST", "OPTIONS")
 
-	router.HandleFunc("/api/community/post/comment", controller.GetSpecificCommunityPostComment).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/community/post/comment", controller.GetSpecificCommunityPostComment).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/community/post/comment", controller.InsertNewCommentCommunityPost).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/community/post/comment", controller.UpdateUserCommentCommunityPost).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/community/post/comment", controller.DeleteUserCommentCommunityPost).Methods("DELETE", "OPTIONS")

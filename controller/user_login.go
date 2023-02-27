@@ -1,6 +1,14 @@
 package controller
 
 import (
+	jwttoken "AzureWS/JWTTOKEN"
+	Aunth "AzureWS/globalvariable/authenticator"
+	"AzureWS/module"
+	"AzureWS/schemas/models"
+	"AzureWS/schemas/request"
+	"AzureWS/schemas/response"
+	"AzureWS/session"
+	"AzureWS/validation"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,15 +19,6 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
-
-	jwttoken "AzureWS/JWTTOKEN"
-	Aunth "AzureWS/globalvariable/authenticator"
-	"AzureWS/module"
-	"AzureWS/schemas/models"
-	"AzureWS/schemas/request"
-	"AzureWS/schemas/response"
-	"AzureWS/session"
-	"AzureWS/validation"
 )
 
 var ipMap = make(map[string]int)
@@ -324,16 +323,11 @@ func LogoutAccount(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	var tokenModel request.RequestTokenData
+	queryParams := r.URL.Query()
 
-	err := json.NewDecoder(r.Body).Decode(&tokenModel)
+	tokenParam := queryParams.Get("token")
 
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenModel.Token)
+	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenParam)
 
 	if errAunth != nil {
 		http.Error(w, errAunth.Error(), AunthStatus)
@@ -365,16 +359,11 @@ func RefrshToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	var tokenModel request.RequestTokenData
+	queryParams := r.URL.Query()
 
-	err := json.NewDecoder(r.Body).Decode(&tokenModel)
+	tokenParam := queryParams.Get("token")
 
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenModel.Token)
+	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenParam)
 
 	if errAunth != nil {
 		http.Error(w, errAunth.Error(), AunthStatus)
@@ -382,7 +371,7 @@ func RefrshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Now check and refresh the token
-	RefreshJWTandSession, errRefreshJWT := jwttoken.ReNewJWTandSession(tokenModel.Token, GetUserIdAunth)
+	RefreshJWTandSession, errRefreshJWT := jwttoken.ReNewJWTandSession(tokenParam, GetUserIdAunth)
 
 	if errRefreshJWT != nil {
 		http.Error(w, errRefreshJWT.Error(), http.StatusInternalServerError)

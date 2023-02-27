@@ -8,28 +8,32 @@ import (
 	"AzureWS/schemas/response"
 	"encoding/json"
 	"net/http"
+	"strconv"
 )
 
 func GetAllCommunityPost(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	var requestData request.RequestTokenWithIndex
+	queryParams := r.URL.Query()
 
-	err := json.NewDecoder(r.Body).Decode(&requestData)
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+	tokenParam := queryParams.Get("token")
+	indexParam := queryParams.Get("index")
+
+	index, errI := strconv.Atoi(indexParam)
+
+	if errI != nil {
+		http.Error(w, errI.Error(), http.StatusBadRequest)
 	}
 
-	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, requestData.Token)
+	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenParam)
 
 	if errAunth != nil {
 		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
 
-	getAllPostData, errGetDat := module.GetAllCommunityPostFromDB(requestData.Index, GetUserIdAunth)
+	getAllPostData, errGetDat := module.GetAllCommunityPostFromDB(index, GetUserIdAunth)
 
 	if errGetDat != nil {
 		http.Error(w, errGetDat.Error(), http.StatusUnauthorized)

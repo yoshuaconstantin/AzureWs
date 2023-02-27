@@ -205,14 +205,11 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	var TokenData request.RequestTokenOnlyData
-	err := json.NewDecoder(r.Body).Decode(&TokenData)
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+	queryParams := r.URL.Query()
 
-	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, TokenData.Token)
+	tokenParam := queryParams.Get("token")
+
+	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenParam)
 
 	if errAunth != nil {
 		http.Error(w, errAunth.Error(), AunthStatus)
