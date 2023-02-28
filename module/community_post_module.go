@@ -4,14 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-
-	_ "github.com/lib/pq" // postgres golang driver
-
 	"AzureWS/config"
 	Gv "AzureWS/globalvariable/variable"
 	"AzureWS/schemas/models"
 	"AzureWS/schemas/request"
 	"AzureWS/schemas/response"
+
+	_ "github.com/lib/pq" // postgres golang driver
 )
 
 // Community Post Area
@@ -21,6 +20,7 @@ func GetAllCommunityPostFromDB(indexPost int, UserId string) ([]response.PostDat
 	defer db.Close()
 
 	var postDatas []response.PostData
+	var isEdit string
 
 	sqlStatement := `SELECT id,nickname,post_message,nation,image_url,created_date,is_edited FROM community_post LIMIT 10 OFFSET $1`
 
@@ -35,10 +35,16 @@ func GetAllCommunityPostFromDB(indexPost int, UserId string) ([]response.PostDat
 	for rows.Next() {
 		var postDat response.PostData
 
-		err = rows.Scan(&postDat.Id, &postDat.Nickname, &postDat.PostMessage, &postDat.Nation, &postDat.ImageUrl, &postDat.CreatedDate, &postDat.IsEdited)
+		err = rows.Scan(&postDat.Id, &postDat.Nickname, &postDat.PostMessage, &postDat.Nation, &postDat.ImageUrl, &postDat.CreatedDate, isEdit)
 
 		if err != nil {
 			log.Fatalf("Cannot get all the post data. %v", err)
+		}
+
+		if isEdit == "true" {
+			postDat.IsEdited = true
+		} else {
+			postDat.IsEdited = false
 		}
 
 		sqlStatement := `SELECT user_id FROM community_post WHERE user_id=$1 AND id = $2`
@@ -50,17 +56,18 @@ func GetAllCommunityPostFromDB(indexPost int, UserId string) ([]response.PostDat
 		if err := row.Scan(&userID); err != nil {
 			if err == sql.ErrNoRows {
 				// User ID not found
-				postDat.OwnPost = "false"
+				postDat.OwnPost = false
 			} else {
 				return nil, err
 			}
 		} else {
 			// User ID found
-			postDat.OwnPost = "true"
+			postDat.OwnPost = true
 		}
 
 		var countComment int
 		var countLike int
+		var isLike int
 		err = db.QueryRow("SELECT COUNT(*) FROM community_post_comment WHERE post_id = $1", &postDat.Id).Scan(&countComment)
 
 		if err != nil {
@@ -76,6 +83,19 @@ func GetAllCommunityPostFromDB(indexPost int, UserId string) ([]response.PostDat
 
 		postDat.LikeCount = countLike
 		postDat.CommentCount = countComment
+
+		err = db.QueryRow("SELECT COUNT(*) FROM community_post_like WHERE post_id = $1 AND user_id = $2", &postDat.Id, userID).Scan(&isLike)
+
+		if err != nil {
+			// handle error
+			return nil, err
+		}
+
+		if isLike > 0 {
+			postDat.IsLiked = true
+		}else {
+			postDat.IsLiked = false		
+		}
 
 		GetComments, errGetCmnt := GetAllPreviewCommentCommunityPostFromDB(postDat.Id)
 
