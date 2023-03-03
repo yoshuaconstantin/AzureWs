@@ -1,10 +1,11 @@
 package router
 
 import (
+	"github.com/gorilla/mux"
+
 	"AzureWS/controller"
 	"AzureWS/websocketstruct"
 
-	"github.com/gorilla/mux"
 )
 
 func Router() *mux.Router {
@@ -19,6 +20,9 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/user", controller.DeleteAccount).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/login", controller.LoginAccount).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/logout", controller.LogoutAccount).Methods("GET", "OPTIONS")
+
+	// Validation data
+	router.HandleFunc("/api/password-validation", controller.ValidatePassword).Methods("GET", "OPTIONS")
 
 	// Dashboards data using token and JWT
 	router.HandleFunc("/api/home/dashboards", controller.GetDashboardsData).Methods("GET", "OPTIONS")

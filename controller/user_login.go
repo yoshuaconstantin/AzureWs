@@ -135,7 +135,7 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 	username := loginData.Username
 	password := loginData.Password
 
-	storedPassword, errStrdPswd := validation.ValidateGetStoredPassword(username)
+	storedPassword, errStrdPswd := validation.ValidateGetStoredPasswordByUsername(username)
 
 	if errStrdPswd != nil {
 		http.Error(w, errStrdPswd.Error(), http.StatusInternalServerError)

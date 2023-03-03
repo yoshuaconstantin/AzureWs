@@ -11,8 +11,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"AzureWS/config"
-	Gv "AzureWS/globalvariable/variable"
 	Ct "AzureWS/globalvariable/constant"
+	Gv "AzureWS/globalvariable/variable"
 
 )
 
@@ -58,7 +58,6 @@ func ValidateGenerateNewToken(username, password string) (string, error) {
 	// Create a SQL query to retrieve the token based on the username and password.
 	sqlStatement := `UPDATE user_login SET token = $1 WHERE username = $2`
 
-	
 	sum := md5.Sum([]byte(password + username + Gv.CurrentTime.String()))
 	tokenGenerated := hex.EncodeToString(sum[:])
 
@@ -108,7 +107,7 @@ func ValidateTokenGetUuid(token string) (string, error) {
 }
 
 // Validate users username to get stored password
-func ValidateGetStoredPassword(username string) (string, error) {
+func ValidateGetStoredPasswordByUsername(username string) (string, error) {
 
 	db := config.CreateConnection()
 
@@ -122,6 +121,33 @@ func ValidateGetStoredPassword(username string) (string, error) {
 	var password sql.NullString
 
 	err := db.QueryRow(sqlStatement, username).Scan(&password)
+
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("%s", "Password not found")
+	}
+
+	if err != nil {
+		log.Fatalf("Error executing the SQL statement: %v", err)
+		return "", err
+	}
+
+	return password.String, nil
+}
+
+func ValidateGetStoredPasswordByUserId(userId string) (string, error) {
+
+	db := config.CreateConnection()
+
+	// Close the connection at the end of the process.
+	defer db.Close()
+
+	// Create a SQL query to retrieve the token based on the username and password.
+	sqlStatement := `SELECT password FROM user_login WHERE user_id = $1`
+
+	// Execute the SQL statement.
+	var password sql.NullString
+
+	err := db.QueryRow(sqlStatement, userId).Scan(&password)
 
 	if err == sql.ErrNoRows {
 		return "", fmt.Errorf("%s", "Password not found")
