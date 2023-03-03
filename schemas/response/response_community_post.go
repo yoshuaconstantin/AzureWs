@@ -9,14 +9,15 @@ type ResponseGetCommunityPost struct {
 }
 
 type PostData struct{
-	Id			int `json:"id"`
-	OwnPost			string `json:"own_post"`
+	Id				int `json:"id"`
+	OwnPost			bool `json:"own_post"`
 	Nickname 		string `json:"nickname"`
 	PostMessage		string `json:"post_message"`
 	Nation	 		string `json:"nation,omitempty"`
 	ImageUrl 		string `json:"image_url,omitempty"`
 	CreatedDate		string `json:"created_date"`
-	IsEdited		string `json:"is_edited"`
+	IsEdited		bool	`json:"is_edited"`
+	IsLiked			bool	`json:"is_liked"`
 	LikeCount		int		`json:"like_count"`
 	CommentCount	int		`json:"comment_count"`
 	Comment 		[]models.CommentDataModels `json:"comments,omitempty"`
