@@ -18,6 +18,7 @@ import (
 	"AzureWS/schemas/models"
 	"AzureWS/session"
 	"AzureWS/validation"
+
 )
 
 func CreateAccountToDB(user models.UserModel) (*models.TokenWithJwtModel, error) {
@@ -192,7 +193,7 @@ func GetSingleUser(id int64) (models.UserModel, error) {
 }
 
 // update user in the DB
-func UpdatePasswordAccountFromDB(userId, password string) (int64, error) {
+func UpdatePasswordAccountFromDB(userId, password string) (bool, error) {
 
 	db := config.CreateConnection()
 
@@ -200,21 +201,29 @@ func UpdatePasswordAccountFromDB(userId, password string) (int64, error) {
 
 	sqlStatement := `UPDATE user_login SET password=$1, WHERE user_id = $2`
 
-	res, err := db.Exec(sqlStatement, password, userId)
+	hashedPassword, errhashed := validation.ValidatePasswordToEncrypt(password)
+
+	if errhashed != nil {
+		return false, errhashed
+	}
+
+	res, err := db.Exec(sqlStatement, hashedPassword, userId)
 
 	if err != nil {
-		log.Fatalf("\nUpdate Password - Tidak bisa mengeksekusi query ganti password. %v\n", err)
+		log.Fatalf("\nUpdate Password - Error : %v\n", err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
 
 	if err != nil {
-		log.Fatalf("\nUpdate Password - Error ketika mengecheck rows/data yang diupdate. %v\n", err)
+		log.Fatalf("\nUpdate Password - Error : %v\n", err)
 	}
 
-	fmt.Printf("\nUpdate Password - State succes\n")
+	if rowsAffected < 1 {
+		return false, fmt.Errorf("%s","Cannot update password!")
+	}
 
-	return rowsAffected, nil
+	return true, nil
 }
 
 /*

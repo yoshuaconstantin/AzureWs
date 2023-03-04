@@ -1,14 +1,6 @@
 package controller
 
 import (
-	jwttoken "AzureWS/JWTTOKEN"
-	Aunth "AzureWS/globalvariable/authenticator"
-	"AzureWS/module"
-	"AzureWS/schemas/models"
-	"AzureWS/schemas/request"
-	"AzureWS/schemas/response"
-	"AzureWS/session"
-	"AzureWS/validation"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -19,6 +11,15 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
+
+	jwttoken "AzureWS/JWTTOKEN"
+	Aunth "AzureWS/globalvariable/authenticator"
+	"AzureWS/module"
+	"AzureWS/schemas/models"
+	"AzureWS/schemas/request"
+	"AzureWS/schemas/response"
+	"AzureWS/session"
+	"AzureWS/validation"
 )
 
 var ipMap = make(map[string]int)
@@ -266,10 +267,15 @@ func UpdateAccountPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, errUpdatePswd := module.UpdatePasswordAccountFromDB(GetUserIdAunth, updatePswdModel.Password)
+	UpdatePswd, errUpdatePswd := module.UpdatePasswordAccountFromDB(GetUserIdAunth, updatePswdModel.Password)
 
 	if errUpdatePswd != nil {
 		http.Error(w, errUpdatePswd.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if !UpdatePswd {
+		http.Error(w, "Cannot change password", http.StatusBadRequest)
 		return
 	}
 
