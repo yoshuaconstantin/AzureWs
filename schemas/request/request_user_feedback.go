@@ -11,11 +11,6 @@ type RequestEditFeedback struct {
 	Comment   string `json:"comment"`
 }
 
-type RequestGetAllFeedbackData struct {
-	Token string `json:"token"`
-	Index int    `json:"index"`
-}
-
 type RequestDeleteSingleFeedbackData struct {
 	Token string `json:"token"`
 	Id    int    `json:"id"`

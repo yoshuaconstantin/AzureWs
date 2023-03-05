@@ -14,12 +14,15 @@ import (
 
 	jwttoken "AzureWS/JWTTOKEN"
 	Aunth "AzureWS/globalvariable/authenticator"
+	"AzureWS/globalvariable/constant"
+	"AzureWS/logging"
 	"AzureWS/module"
 	"AzureWS/schemas/models"
 	"AzureWS/schemas/request"
 	"AzureWS/schemas/response"
 	"AzureWS/session"
 	"AzureWS/validation"
+
 )
 
 var ipMap = make(map[string]int)
@@ -255,7 +258,10 @@ func UpdateAccountPassword(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&updatePswdModel)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		logging.InsertLog(r, constant.UserUpdatePassword, err.Error(), "", http.StatusBadRequest, 3, 2)
+
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 
 	}
@@ -263,6 +269,9 @@ func UpdateAccountPassword(w http.ResponseWriter, r *http.Request) {
 	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, updatePswdModel.Token)
 
 	if errAunth != nil {
+
+		logging.InsertLog(r, constant.UserUpdatePassword, errAunth.Error(), updatePswdModel.Token, AunthStatus, 3, 3)
+
 		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
@@ -270,18 +279,26 @@ func UpdateAccountPassword(w http.ResponseWriter, r *http.Request) {
 	UpdatePswd, errUpdatePswd := module.UpdatePasswordAccountFromDB(GetUserIdAunth, updatePswdModel.Password)
 
 	if errUpdatePswd != nil {
+
+		logging.InsertLog(r, constant.UserUpdatePassword, errUpdatePswd.Error(), updatePswdModel.Token, http.StatusInternalServerError, 3, 3)
+
 		http.Error(w, errUpdatePswd.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if !UpdatePswd {
-		http.Error(w, "Cannot change password", http.StatusBadRequest)
+
+		logging.InsertLog(r, constant.UserUpdatePassword, "Cannot change password", updatePswdModel.Token, http.StatusInternalServerError, 3, 3)
+
+		http.Error(w, "Cannot change password", http.StatusInternalServerError)
 		return
 	}
 
 	var response response.GeneralResponseNoData
 	response.Message = "Succes"
 	response.Status = http.StatusOK
+
+	logging.InsertLog(r, constant.UserUpdatePassword, "", updatePswdModel.Token, http.StatusOK, 3, 4)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -292,18 +309,16 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	var tokenModel request.RequestTokenData
+	queryParams := r.URL.Query()
 
-	err := json.NewDecoder(r.Body).Decode(&tokenModel)
+	tokenParam := queryParams.Get("token")
 
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenModel.Token)
+	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenParam)
 
 	if errAunth != nil {
+
+		logging.InsertLog(r, constant.UserDeleteAccount, errAunth.Error(), tokenParam, AunthStatus, 4, 3)
+		
 		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
@@ -311,6 +326,9 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	_, errDeleteUser := module.RemoveAccountFromDB(GetUserIdAunth)
 
 	if errDeleteUser != nil {
+
+		logging.InsertLog(r, constant.UserDeleteAccount, errDeleteUser.Error(), tokenParam, http.StatusInternalServerError, 4, 3)
+
 		http.Error(w, errDeleteUser.Error(), http.StatusInternalServerError)
 		return
 
@@ -319,6 +337,8 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	var response response.GeneralResponseNoData
 	response.Message = "Delete user operation success"
 	response.Status = http.StatusOK
+
+	logging.InsertLog(r, constant.UserDeleteAccount, "", tokenParam, http.StatusOK, 4, 4)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -336,6 +356,9 @@ func LogoutAccount(w http.ResponseWriter, r *http.Request) {
 	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenParam)
 
 	if errAunth != nil {
+
+		logging.InsertLog(r, constant.UserDeleteAccount, errAunth.Error(), tokenParam, AunthStatus, 1, 3)
+
 		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
@@ -343,11 +366,17 @@ func LogoutAccount(w http.ResponseWriter, r *http.Request) {
 	logoutUser, errLogout := module.LogoutAccountFromDB(GetUserIdAunth)
 
 	if errLogout != nil {
+
+		logging.InsertLog(r, constant.UserDeleteAccount, errLogout.Error(), tokenParam,  http.StatusInternalServerError, 1, 3)
+
 		http.Error(w, errLogout.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if !logoutUser {
+
+		logging.InsertLog(r, constant.UserDeleteAccount, "Error when trying to logout", tokenParam,  http.StatusInternalServerError, 1, 3)
+
 		http.Error(w, "Error when trying to logout", http.StatusInternalServerError)
 		return
 	}
@@ -355,6 +384,9 @@ func LogoutAccount(w http.ResponseWriter, r *http.Request) {
 	var response response.GeneralResponseNoData
 	response.Message = "Logout Succes"
 	response.Status = http.StatusOK
+
+	logging.InsertLog(r, constant.UserDeleteAccount, "", tokenParam,  http.StatusOK, 1, 4)
+
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -372,6 +404,9 @@ func RefrshToken(w http.ResponseWriter, r *http.Request) {
 	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenParam)
 
 	if errAunth != nil {
+
+		logging.InsertLog(r, constant.RefreshToken, errAunth.Error(), tokenParam,  AunthStatus, 1, 3)
+
 		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
@@ -380,6 +415,9 @@ func RefrshToken(w http.ResponseWriter, r *http.Request) {
 	RefreshJWTandSession, errRefreshJWT := jwttoken.ReNewJWTandSession(tokenParam, GetUserIdAunth)
 
 	if errRefreshJWT != nil {
+
+		logging.InsertLog(r, constant.RefreshToken, errRefreshJWT.Error(), tokenParam,  http.StatusInternalServerError, 1, 3)
+
 		http.Error(w, errRefreshJWT.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -388,6 +426,8 @@ func RefrshToken(w http.ResponseWriter, r *http.Request) {
 	response.Message = "Token Refreshed"
 	response.Status = http.StatusOK
 	response.JwtToken = RefreshJWTandSession
+
+	logging.InsertLog(r, constant.RefreshToken, "", tokenParam,  http.StatusOK, 1, 4)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)

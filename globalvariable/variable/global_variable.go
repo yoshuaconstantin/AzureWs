@@ -6,6 +6,7 @@ import (
 
 // Get Current Time
 var CurrentTime = time.Now()
+var EndTime = time.Now()
 
 // Format the time
 var FormatedTimeiso8601 = CurrentTime.Format(time.RFC3339)

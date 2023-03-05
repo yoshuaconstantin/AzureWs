@@ -1,8 +1,6 @@
 package module
 
 import (
-	"AzureWS/config"
-	"AzureWS/schemas/models"
 	"bytes"
 	"fmt"
 	"image"
@@ -17,6 +15,11 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+
+	"AzureWS/config"
+	"AzureWS/schemas/models"
+	Gv "AzureWS/globalvariable/variable"
+
 )
 
 // Init insert user profile with user id and the rest string null
@@ -27,12 +30,10 @@ func InitUserProfileToDatabase(userId string) (bool, error) {
 	defer db.Close()
 
 	// Created Date for user
-	currentTime := time.Now()
-	CreatedDate := currentTime.Format("2006-01-02 15:04")
 
 	sqlStatement := `INSERT INTO user_profile (user_id, nickname, age, gender, nation, image_url, created_since) VALUES ($1, '', '','','','',$2)`
 
-	_, err := db.Exec(sqlStatement, userId, CreatedDate)
+	_, err := db.Exec(sqlStatement, userId, Gv.FormattedTimeNowYYYYMMDDHHMM)
 
 	if err != nil {
 		log.Fatalf("\nINSERT USER PROFILE - Cannot execute command : %v\n", err)

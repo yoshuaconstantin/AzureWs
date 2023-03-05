@@ -1,13 +1,17 @@
 package controller
 
 import (
+	"encoding/json"
+	"net/http"
+
 	Aunth "AzureWS/globalvariable/authenticator"
+	"AzureWS/globalvariable/constant"
+	"AzureWS/logging"
 	"AzureWS/module"
 	"AzureWS/schemas/models"
 	"AzureWS/schemas/request"
 	"AzureWS/schemas/response"
-	"encoding/json"
-	"net/http"
+
 )
 
 /*
@@ -28,6 +32,9 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	// Read the binary data from the request body
 	var imageData request.RequestUploadImageData
 	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, err.Error(), "", http.StatusBadRequest, 2, 2)
+
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -35,6 +42,9 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, imageData.Token)
 
 	if errAunth != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, errAunth.Error(), imageData.Token, AunthStatus, 2, 3)
+
 		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
@@ -43,12 +53,18 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	UploadImageToDB, errUploadImageToDB := module.UploadUserProfilePhotoToDB(GetUserIdAunth, imageData.Data)
 
 	if errUploadImageToDB != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, errUploadImageToDB.Error(), imageData.Token, http.StatusNotAcceptable, 2, 3)
+
 		http.Error(w, errUploadImageToDB.Error(), http.StatusNotAcceptable)
 		return
 	}
 
 	if !UploadImageToDB {
-		http.Error(w, "Failed to upload Image Url to database", http.StatusNotAcceptable)
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, "Failed to upload Image Url to database", imageData.Token, http.StatusInternalServerError, 2, 3)
+
+		http.Error(w, "Failed to upload Image Url to database", http.StatusInternalServerError)
 		return
 	}
 
@@ -56,6 +72,8 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	var response response.GeneralResponseNoData
 	response.Status = http.StatusOK
 	response.Message = "Success Upload Image"
+
+	logging.InsertLog(r, constant.HomeUserProfileImage, "", imageData.Token, http.StatusOK, 2, 4)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -69,6 +87,9 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	// Read the binary data from the request body
 	var imageData request.RequestUpdateProfileImageData
 	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, err.Error(), "", http.StatusBadRequest, 3, 2)
+
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -76,6 +97,9 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, imageData.Token)
 
 	if errAunth != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, errAunth.Error(), imageData.Token, AunthStatus, 3, 3)
+
 		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
@@ -84,6 +108,9 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	GetNewImageUrl, errGetImageUrl := module.ConvertByteToImgString(imageData.Data, GetUserIdAunth)
 
 	if errGetImageUrl != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, errGetImageUrl.Error(), imageData.Token, http.StatusNotAcceptable, 3, 3)
+
 		http.Error(w, errGetImageUrl.Error(), http.StatusNotAcceptable)
 		return
 	}
@@ -91,12 +118,18 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	UpdateUsersProfileImage, errUpdateProfileImage := module.UpdateUserProfileImageFromDB(GetUserIdAunth, GetNewImageUrl, imageData.OldImageUrl)
 
 	if errUpdateProfileImage != nil {
-		http.Error(w, errUpdateProfileImage.Error(), http.StatusNotAcceptable)
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, errUpdateProfileImage.Error(), imageData.Token, http.StatusInternalServerError, 3, 3)
+
+		http.Error(w, errUpdateProfileImage.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if !UpdateUsersProfileImage {
-		http.Error(w, "An error occured when updating users profile image", http.StatusNotAcceptable)
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, "An error occured when updating users profile image", imageData.Token, http.StatusInternalServerError, 3, 3)
+
+		http.Error(w, "An error occured when updating users profile image", http.StatusInternalServerError)
 		return
 	}
 
@@ -104,6 +137,8 @@ func UpdateImageProfile(w http.ResponseWriter, r *http.Request) {
 	var response response.GeneralResponseNoData
 	response.Status = http.StatusOK
 	response.Message = "Success Update Image"
+
+	logging.InsertLog(r, constant.HomeUserProfileImage, "", imageData.Token, http.StatusOK, 3, 4)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -117,6 +152,9 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 	// Read the binary data from the request body
 	var imageData request.RequestDeleteProfileImageData
 	if err := json.NewDecoder(r.Body).Decode(&imageData); err != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, err.Error(), "", http.StatusBadRequest, 4, 2)
+
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -124,6 +162,9 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, imageData.Token)
 
 	if errAunth != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, errAunth.Error(), imageData.Token, AunthStatus, 4, 3)
+
 		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
@@ -131,12 +172,18 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 	DeleteUserProfileImage, errDeleteProfileImage := module.DeleteUserImageProfileFromDB(GetUserIdAunth, imageData.OldImageUrl)
 
 	if errDeleteProfileImage != nil {
-		http.Error(w, errDeleteProfileImage.Error(), http.StatusNotAcceptable)
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, errDeleteProfileImage.Error(), imageData.Token, http.StatusInternalServerError, 4, 3)
+
+		http.Error(w, errDeleteProfileImage.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if !DeleteUserProfileImage {
-		http.Error(w, "An error occured when deleting users profile image", http.StatusNotAcceptable)
+
+		logging.InsertLog(r, constant.HomeUserProfileImage, "An error occured when deleting users profile image", imageData.Token, http.StatusInternalServerError, 4, 3)
+
+		http.Error(w, "An error occured when deleting users profile image", http.StatusInternalServerError)
 		return
 	}
 
@@ -144,6 +191,8 @@ func DeleteImageProfile(w http.ResponseWriter, r *http.Request) {
 	var response response.GeneralResponseNoData
 	response.Status = http.StatusOK
 	response.Message = "Success Update Image"
+
+	logging.InsertLog(r, constant.HomeUserProfileImage, "", imageData.Token, http.StatusOK, 4, 4)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -158,6 +207,9 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&userData)
 	if err != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfile, err.Error(), "", http.StatusBadRequest, 2, 2)
+
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -165,6 +217,9 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, userData.Token)
 
 	if errAunth != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfile, errAunth.Error(),userData.Token, AunthStatus, 2, 3)
+
 		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
@@ -182,19 +237,18 @@ func InsertDataProfile(w http.ResponseWriter, r *http.Request) {
 	insertDataProfile, errInsertUserProfile := module.UpdateUserProfileToDatabase(userProfileData, GetUserIdAunth)
 
 	if errInsertUserProfile != nil {
-		var response response.GeneralResponseNoData
-		response.Status = http.StatusConflict
-		response.Message = errInsertUserProfile.Error()
 
-		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(response)
+		logging.InsertLog(r, constant.HomeUserProfile, errInsertUserProfile.Error(), userData.Token, http.StatusInternalServerError, 2, 3)
 
+		http.Error(w, errInsertUserProfile.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var response response.GeneralResponseNoData
 	response.Status = http.StatusOK
 	response.Message = insertDataProfile
+
+	logging.InsertLog(r, constant.HomeUserProfile, "", userData.Token, http.StatusOK, 2, 4)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -212,6 +266,9 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	GetUserIdAunth, AunthStatus, errAunth := Aunth.SecureAuthenticator(w, r, tokenParam)
 
 	if errAunth != nil {
+
+		logging.InsertLog(r, constant.HomeUserProfile, errAunth.Error(), tokenParam, AunthStatus, 1, 3)
+
 		http.Error(w, errAunth.Error(), AunthStatus)
 		return
 	}
@@ -221,7 +278,10 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	dataModel, errGetDataProfile := module.GetUserProfileDataFromDB(GetUserIdAunth)
 
 	if errGetDataProfile != nil {
-		http.Error(w, errGetDataProfile.Error(), http.StatusConflict)
+
+		logging.InsertLog(r, constant.HomeUserProfile, errGetDataProfile.Error(), tokenParam, http.StatusInternalServerError, 1, 3)
+
+		http.Error(w, errGetDataProfile.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -229,6 +289,8 @@ func GetDataProfile(w http.ResponseWriter, r *http.Request) {
 	response.Status = http.StatusOK
 	response.Message = "Get data success"
 	response.Data = dataModel
+
+	logging.InsertLog(r, constant.HomeUserProfile, "", tokenParam, http.StatusOK, 1, 4)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)

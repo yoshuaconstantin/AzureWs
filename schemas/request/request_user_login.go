@@ -9,7 +9,3 @@ type RequestChangePasswordData struct {
 	Token    string `json:"token"`
 	Password string `json:"password"`
 }
-
-type RequestTokenData struct {
-	Token string `json:"token"`
-}
