@@ -8,6 +8,7 @@ import (
 	"AzureWS/config"
 	Gv "AzureWS/globalvariable/variable"
 	"AzureWS/validation"
+
 )
 
 func LogsBadRequest(endPointName, method, requestBody, errorMessage string, responseCode int) {
@@ -33,7 +34,7 @@ func LogsNonOK(endPointName, method, requestBody, errorMessage, userId string, r
 
 	// Created Date for user
 
-	sqlStatement := `INSERT INTO logging_bad_request (user_id ,endpoint_name, method, response_code, timestamp, error_message) VALUES ($1, $2, $3, $4, $5, $6)`
+	sqlStatement := `INSERT INTO logging_status_non_ok (user_id ,endpoint_name, method, response_code, timestamp, error_message) VALUES ($1, $2, $3, $4, $5, $6)`
 
 	_, err := db.Exec(sqlStatement, userId, endPointName, method, requestBody, Gv.FormattedTimeNowYYYYMMDDHHMM, errorMessage)
 
@@ -49,9 +50,25 @@ func Logs200OK(endPointName, method, userId string, responseCode int) {
 
 	// Created Date for user
 
-	sqlStatement := `INSERT INTO logging_bad_request (user_id ,endpoint_name, method, response_code, timestamp, error_message) VALUES ($1, $2, $3, $4, $5, $6)`
+	sqlStatement := `INSERT INTO logging_status_ok (user_id ,endpoint_name, method, response_code, timestamp) VALUES ($1, $2, $3, $4, $5)`
 
 	_, err := db.Exec(sqlStatement, userId, endPointName, method, responseCode, Gv.FormattedTimeNowYYYYMMDDHHMM)
+
+	if err != nil {
+		log.Fatalf("\nINSERT LOGGING  - Cannot execute command : %v\n", err)
+	}
+}
+
+func LogsOutsideLogin(endPointName, method, errorMessage, additionalInfo string, responseCode int) {
+	db := config.CreateConnection()
+
+	defer db.Close()
+
+	// Created Date for user
+
+	sqlStatement := `INSERT INTO logging_outside_login (endpoint_name, method, response_code, timestamp, error_message, additional_info) VALUES ($2, $3, $4, $5, $6)`
+
+	_, err := db.Exec(sqlStatement, endPointName, method, responseCode, Gv.FormattedTimeNowYYYYMMDDHHMM, errorMessage, additionalInfo)
 
 	if err != nil {
 		log.Fatalf("\nINSERT LOGGING  - Cannot execute command : %v\n", err)
@@ -71,6 +88,7 @@ func InsertLog(r *http.Request, endpointName, errorMessage, token string, method
 		2 = LogsBadRequest
 		3 = LogsNonOK
 		4 = Logs200OK
+		5 = LogsNonLogin
 	*/
 
 	var method string
@@ -103,5 +121,7 @@ func InsertLog(r *http.Request, endpointName, errorMessage, token string, method
 		userId, _ := validation.ValidateTokenGetUuid(token)
 
 		Logs200OK(endpointName, method, userId, responseCode)
+	case 5:
+		LogsOutsideLogin(endpointName, method, errorMessage, token ,responseCode)
 	}
 }

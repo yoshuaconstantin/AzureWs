@@ -56,12 +56,19 @@ func CreateNewAccount(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&user)
 
 	if err != nil {
-		log.Fatalf("\nCREATE NEW USER - Cannot get request body : %v\n", err)
+
+		logging.InsertLog(r, constant.CreateAccountPost, err.Error(), "", http.StatusBadRequest, 2, 5)
+
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	GetTokenAndJwt, errInsert := module.CreateAccountToDB(user)
 
 	if errInsert != nil {
+
+		logging.InsertLog(r, constant.CreateAccountPost, errInsert.Error(), "", http.StatusInternalServerError, 2, 5)
+
 		http.Error(w, errInsert.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -71,6 +78,8 @@ func CreateNewAccount(w http.ResponseWriter, r *http.Request) {
 	response.Message = "Data user baru telah di tambahkan"
 	response.JwtToken = GetTokenAndJwt.JWT
 	response.Token = GetTokenAndJwt.Token
+
+	logging.InsertLog(r, constant.CreateAccountPost, "", "", http.StatusOK, 2, 5)
 
 	// kirim response
 	w.WriteHeader(http.StatusOK)
@@ -115,6 +124,9 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 	IsIpBlocked := isBlocked(ipAddr)
 
 	if IsIpBlocked {
+
+		logging.InsertLog(r, constant.UserLogin, "IP Blocked", r.RemoteAddr, http.StatusUnauthorized, 2, 5)
+
 		http.Error(w, "Your IP has been blocked try again in 4 more hours.", http.StatusUnauthorized)
 		return
 	} else {
@@ -125,6 +137,8 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 		// Return an error response indicating that the IP address has been blocked
 		blockIP(ipAddr)
 
+		logging.InsertLog(r, constant.UserLogin, "Too many failed login attempts. Your IP has been blocked.", r.RemoteAddr, http.StatusUnauthorized, 2, 5)
+
 		http.Error(w, "Too many failed login attempts. Your IP has been blocked.", http.StatusUnauthorized)
 		return
 	}
@@ -132,6 +146,9 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 	var loginData request.RequestLoginData
 	err := json.NewDecoder(r.Body).Decode(&loginData)
 	if err != nil {
+
+		logging.InsertLog(r, constant.UserLogin, err.Error(), r.RemoteAddr , http.StatusBadRequest, 2, 5)
+
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -142,6 +159,9 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 	storedPassword, errStrdPswd := validation.ValidateGetStoredPasswordByUsername(username)
 
 	if errStrdPswd != nil {
+
+		logging.InsertLog(r, constant.UserLogin, errStrdPswd.Error(), r.RemoteAddr , http.StatusInternalServerError, 2, 5)
+
 		http.Error(w, errStrdPswd.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -157,6 +177,8 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 
 		errorMsg := fmt.Sprintf("Password not match. You have %d attempts left", attemptsLeft)
 
+		logging.InsertLog(r, constant.UserLogin, errorMsg, r.RemoteAddr , http.StatusConflict, 2, 5)
+
 		http.Error(w, errorMsg, http.StatusConflict)
 		return
 	}
@@ -168,6 +190,8 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 
 		errorMsg := fmt.Sprintf("Password not match. You have %d attempts left", attemptsLeft)
 
+		logging.InsertLog(r, constant.UserLogin, errorMsg, r.RemoteAddr , http.StatusBadRequest, 2, 5)
+
 		http.Error(w, errorMsg, http.StatusBadRequest)
 		return
 	}
@@ -175,12 +199,18 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 	token, errToken := validation.ValidateGenerateNewToken(username, password)
 
 	if errToken != nil {
+
+		logging.InsertLog(r, constant.UserLogin, errToken.Error(), r.RemoteAddr , http.StatusUnauthorized, 2, 5)
+
 		http.Error(w, errToken.Error(), http.StatusUnauthorized)
 	}
 
 	GetUserID, errGetUuid := validation.ValidateTokenGetUuid(token)
 
 	if errGetUuid != nil {
+
+		logging.InsertLog(r, constant.UserLogin, errGetUuid.Error(), r.RemoteAddr , http.StatusUnauthorized, 2, 5)
+
 		http.Error(w, errGetUuid.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -189,6 +219,9 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 	GenerateJwtToken, errGenerate := jwttoken.GenerateToken(GetUserID)
 
 	if errGenerate != nil {
+
+		logging.InsertLog(r, constant.UserLogin, errGenerate.Error(), r.RemoteAddr , http.StatusInternalServerError, 2, 5)
+
 		http.Error(w, errGenerate.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -196,11 +229,17 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 	ReNewSession, errAddSession := session.ReNewSessionLogin(GetUserID)
 
 	if errAddSession != nil {
+
+		logging.InsertLog(r, constant.UserLogin, errAddSession.Error(), r.RemoteAddr , http.StatusInternalServerError, 2, 5)
+
 		http.Error(w, errAddSession.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if !ReNewSession {
+
+		logging.InsertLog(r, constant.UserLogin, "Failed to refresh session", r.RemoteAddr , http.StatusInternalServerError, 2, 5)
+
 		http.Error(w, "Failed to refresh session", http.StatusInternalServerError)
 		return
 	}
@@ -212,6 +251,8 @@ func LoginAccount(w http.ResponseWriter, r *http.Request) {
 	response.Message = "Success"
 	response.Token = token
 	response.JwtToken = GenerateJwtToken
+
+	logging.InsertLog(r, constant.UserLogin, "OK Logged On", token , http.StatusOK, 2, 5)
 
 	w.WriteHeader(http.StatusOK)
 
